@@ -1,0 +1,6 @@
+# Python == 3.11
+opencv-python
+mediapipe==0.10.14
+numpy
+torch
+scikit-learn

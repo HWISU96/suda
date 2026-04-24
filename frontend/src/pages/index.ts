@@ -1,5 +1,0 @@
-export { FaqPage } from '@/pages/faq'
-export { HomePage } from '@/pages/home'
-export { NotFoundPage } from '@/pages/not-found'
-export { ProgramsPage } from '@/pages/programs'
-export { ResourcesPage } from '@/pages/resources'

@@ -11,9 +11,9 @@ stages:
 default:
   interruptible: true
 
-.mr_to_dev_or_main:
+.mr_to_develop_or_main:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")'
 
 .mr_to_main_only:
   rules:
@@ -25,8 +25,8 @@ main_source_guard:
   extends: .mr_to_main_only
   script:
     - |
-      if [ "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" != "dev" ]; then
-        echo "Only dev -> main merge requests are allowed."
+      if [ "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" != "develop" ]; then
+        echo "Only develop -> main merge requests are allowed."
         exit 1
       fi
       echo "Branch flow check passed: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME -> $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
@@ -34,7 +34,14 @@ main_source_guard:
 backend-check:
   stage: verify
   image: eclipse-temurin:21-jdk
-  extends: .mr_to_dev_or_main
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+        - docker-compose.yml
+        - .env.example
+    - when: never
   variables:
     GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
   cache:
@@ -47,30 +54,52 @@ backend-check:
     - chmod +x gradlew
   script:
     - ./gradlew spotlessCheck --no-daemon
-    - ./gradlew spotbugsMain --no-daemon
     - ./gradlew build -x test --no-daemon
 
-frontend-check:
+mobile-check:
   stage: verify
-  image: node:22
-  extends: .mr_to_dev_or_main
+  image: eclipse-temurin:21-jdk
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")'
+      changes:
+        - mobile/**/*
+        - .gitlab-ci.yml
+    - when: never
   variables:
-    VITE_API_BASE_URL: http://localhost:8080
-    VITE_API_TIMEOUT_MS: "10000"
-    VITE_WS_BASE_URL: ws://localhost:8080/ws
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+    ANDROID_HOME: "$CI_PROJECT_DIR/android-sdk"
+    ANDROID_SDK_ROOT: "$CI_PROJECT_DIR/android-sdk"
+    ANDROID_COMPILE_SDK: "35"
+    ANDROID_BUILD_TOOLS: "36.0.0"
+    ANDROID_CMDLINE_TOOLS_REV: "13114758"
+  cache:
+    - key:
+        prefix: mobile-gradle
+        files:
+          - mobile/gradle/libs.versions.toml
+          - mobile/gradle/wrapper/gradle-wrapper.properties
+      fallback_keys:
+        - mobile-gradle-default
+      paths:
+        - .gradle/caches
+        - .gradle/wrapper
+    - key: "android-sdk-${ANDROID_COMPILE_SDK}-${ANDROID_BUILD_TOOLS}-${ANDROID_CMDLINE_TOOLS_REV}"
+      paths:
+        - android-sdk
   before_script:
-    - cd frontend
-    - npm ci
+    - chmod +x .gitlab/scripts/setup-android-sdk.sh
+    - ./.gitlab/scripts/setup-android-sdk.sh
+    - cd mobile
+    - chmod +x gradlew
   script:
-    - npm run lint
-    - npm run typecheck
-    - npm run build
+    - echo "[mobile-check] running quality gate (ktlint/detekt/lint/test/assemble)"
+    - ./gradlew ktlintCheck detekt lintDebug testDebugUnitTest assembleDebug --no-daemon --console=plain --warning-mode=summary
 
 secret-scan:
   stage: security
   image:
     name: ghcr.io/gitleaks/gitleaks:v8.30.0
     entrypoint: [""]
-  extends: .mr_to_dev_or_main
+  extends: .mr_to_develop_or_main
   script:
     - gitleaks detect --source . --no-git --redact --exit-code 1

@@ -1,0 +1,33 @@
+# =========================
+# Android & Kotlin
+# =========================
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+captures/
+/captures
+.externalNativeBuild/
+.cxx/
+lint-baseline.xml
+
+# =========================
+# Gradle & IDE Cache (Mobile specific)
+# =========================
+.gradle
+/build
+/local.properties
+local.properties
+/gradle/gradle-daemon-jvm.properties
+
+# IntelliJ / Android Studio Specific
+*.iml
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+
+.DS_Store

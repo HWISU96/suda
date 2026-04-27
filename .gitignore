@@ -1,0 +1,30 @@
+# =========================
+# Common & Security
+# =========================
+.env
+*.pem
+*.key
+local.properties
+keystore.properties
+secrets.xml
+
+# =========================
+# Build & Gradle (Global)
+# =========================
+build/
+*/build/
+.gradle/
+!**/gradle/wrapper/gradle-wrapper.jar
+out/
+bin/
+target/
+
+# =========================
+# IDE & OS
+# =========================
+.idea/
+*.iml
+*.iws
+.vscode/
+.DS_Store
+Thumbs.db

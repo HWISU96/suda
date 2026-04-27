@@ -1,5 +1,15 @@
 import io.gitlab.arturbosch.detekt.Detekt
 import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
+import java.util.Properties
+
+// 모노레포 루트 .env 파일에서 환경변수 로드
+val envFile = rootDir.parentFile.resolve(".env")
+val envProps =
+    Properties().also { props ->
+        if (envFile.exists()) props.load(envFile.inputStream())
+    }
+val mobileBaseUrl: String =
+    envProps.getProperty("MOBILE_API_BASE_URL", "http://10.0.2.2:8080/api/")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -22,6 +32,7 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BASE_URL", "\"$mobileBaseUrl\"")
     }
 
     buildTypes {
@@ -39,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     lint {
         // local.properties path escaping can fail differently by host OS.

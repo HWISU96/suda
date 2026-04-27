@@ -1,32 +1,34 @@
-﻿package com.ssafy.mobile.core.database
+package com.ssafy.mobile.feature.sample.data.local.db
 
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.ssafy.mobile.feature.sample.data.local.db.SampleTodoDao
-import com.ssafy.mobile.feature.sample.data.local.db.SampleTodoEntity
 
+/**
+ * Sample 피처 전용 Room 데이터베이스.
+ * 본 개발 시 실제 DB는 각 피처 모듈에 독립적으로 정의합니다.
+ */
 @Database(
     entities = [SampleTodoEntity::class],
     version = 1,
     exportSchema = true,
 )
-abstract class MobileDatabase : RoomDatabase() {
+abstract class SampleDatabase : RoomDatabase() {
     abstract fun sampleTodoDao(): SampleTodoDao
 
     companion object {
-        private const val DATABASE_NAME = "mobile.db"
+        private const val DATABASE_NAME = "sample.db"
 
         @Volatile
-        private var instance: MobileDatabase? = null
+        private var instance: SampleDatabase? = null
 
-        fun getInstance(context: Context): MobileDatabase =
+        fun getInstance(context: Context): SampleDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room
                     .databaseBuilder(
                         context = context.applicationContext,
-                        klass = MobileDatabase::class.java,
+                        klass = SampleDatabase::class.java,
                         name = DATABASE_NAME,
                     ).build()
                     .also { instance = it }

@@ -5,7 +5,18 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### STS ###
+# =========================
+# Java & Spring Boot
+# =========================
+*.jar
+*.war
+*.ear
+hs_err_pid*
+*.log
+
+# =========================
+# STS
+# =========================
 .apt_generated
 .classpath
 .factorypath
@@ -17,7 +28,9 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### IntelliJ IDEA ###
+# =========================
+# IntelliJ IDEA
+# =========================
 .idea
 *.iws
 *.iml
@@ -26,12 +39,16 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### NetBeans ###
+# =========================
+# NetBeans
+# =========================
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
+# =========================
+# VS Code
+# =========================
 .vscode/

@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:function-naming")
-
 package com.ssafy.mobile.feature.sample.presentation
 
 import androidx.compose.foundation.layout.Arrangement

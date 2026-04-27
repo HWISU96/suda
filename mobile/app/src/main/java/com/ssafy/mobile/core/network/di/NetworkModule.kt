@@ -16,9 +16,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 object NetworkModule {
     private const val NETWORK_TIMEOUT_SEC = 30L
 
-    // 백엔드 서버 URL 확정 시 변경 필요
-    private const val BASE_URL = "http://localhost:8080/api/"
-
     @Provides
     @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor =
@@ -44,7 +41,7 @@ object NetworkModule {
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
         Retrofit
             .Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(com.ssafy.mobile.BuildConfig.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

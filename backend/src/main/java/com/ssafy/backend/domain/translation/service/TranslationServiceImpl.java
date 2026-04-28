@@ -7,6 +7,7 @@ import com.ssafy.backend.domain.translation.exception.TranslationErrorCode;
 import com.ssafy.backend.global.exception.BusinessException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,8 +17,8 @@ public class TranslationServiceImpl implements TranslationService {
   private static final String MOCK_AUDIO_BASE64 = "BASE64_ENCODED_AUDIO";
   private static final String MOCK_AUDIO_MIME_TYPE = "audio/mpeg";
   private static final String DEFAULT_LOCALE = "ko-KR";
-  private static final List<String> SUPPORTED_AUDIO_MIME_TYPES =
-      List.of(
+  private static final Set<String> SUPPORTED_AUDIO_MIME_TYPES =
+      Set.of(
           "audio/mpeg",
           "audio/mp3",
           "audio/mp4",

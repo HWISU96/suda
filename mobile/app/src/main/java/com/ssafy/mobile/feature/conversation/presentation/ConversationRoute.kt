@@ -64,6 +64,10 @@ fun ConversationRoute(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose { viewModel.stopSession() }
+    }
+
     ConversationScreen(
         sessionState = sessionState,
         lastGlosses = lastGlosses,
@@ -108,6 +112,7 @@ private fun ConversationScreen(
                         .fillMaxWidth(),
             ) {
                 SignRecognitionScreen(
+                    isSessionActive = sessionState == SessionState.Active,
                     modifier = Modifier.fillMaxSize(),
                 )
 

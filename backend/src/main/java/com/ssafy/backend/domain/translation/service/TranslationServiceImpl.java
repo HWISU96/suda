@@ -6,6 +6,7 @@ import com.ssafy.backend.domain.translation.dto.SpeechToTextResponseDto;
 import com.ssafy.backend.domain.translation.exception.TranslationErrorCode;
 import com.ssafy.backend.global.exception.BusinessException;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,8 +51,12 @@ public class TranslationServiceImpl implements TranslationService {
         audioMimeType != null && !audioMimeType.isBlank()
             ? audioMimeType
             : audioFile.getContentType();
-    if (resolvedAudioMimeType == null
-        || !SUPPORTED_AUDIO_MIME_TYPES.contains(resolvedAudioMimeType)) {
+    String normalizedAudioMimeType =
+        resolvedAudioMimeType == null
+            ? null
+            : resolvedAudioMimeType.trim().toLowerCase(Locale.ROOT);
+    if (normalizedAudioMimeType == null
+        || !SUPPORTED_AUDIO_MIME_TYPES.contains(normalizedAudioMimeType)) {
       throw new BusinessException(TranslationErrorCode.INVALID_AUDIO);
     }
 

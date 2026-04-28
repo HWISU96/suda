@@ -1,5 +1,6 @@
 package com.ssafy.mobile.feature.conversation.di
 
+import com.ssafy.mobile.core.vision.RealSignRecognitionEngine
 import com.ssafy.mobile.core.vision.SignRecognitionEngine
 import com.ssafy.mobile.feature.conversation.data.remote.TranslateApiService
 import com.ssafy.mobile.feature.conversation.data.repository.DefaultTranslateRepository
@@ -24,7 +25,7 @@ abstract class ConversationModule {
     @Binds
     @Singleton
     abstract fun bindSignRecognitionEngine(
-        engine: FakeSignRecognitionEngine,
+        realEngine: RealSignRecognitionEngine,
     ): SignRecognitionEngine
 
     companion object {

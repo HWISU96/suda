@@ -25,7 +25,10 @@ fun MobileNavHost(
         }
 
         composable(Screen.Sign.route) {
-            SignRecognitionScreen(modifier = Modifier.fillMaxSize())
+            SignRecognitionScreen(
+                isSessionActive = true,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }

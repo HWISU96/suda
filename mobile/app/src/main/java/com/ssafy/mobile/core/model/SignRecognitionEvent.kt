@@ -1,6 +1,12 @@
 package com.ssafy.mobile.core.model
 
 sealed interface SignRecognitionEvent {
+    data object Ready : SignRecognitionEvent
+
+    data object Started : SignRecognitionEvent
+
+    data object Stopped : SignRecognitionEvent
+
     // 단일 단어 추론 결과
     data class Prediction(
         val gloss: String,
@@ -22,5 +28,6 @@ sealed interface SignRecognitionEvent {
 
     data class Error(
         val message: String,
+        val cause: Throwable? = null,
     ) : SignRecognitionEvent
 }

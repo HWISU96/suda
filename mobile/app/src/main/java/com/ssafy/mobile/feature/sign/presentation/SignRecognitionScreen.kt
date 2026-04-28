@@ -40,11 +40,13 @@ private const val FPS_SAMPLE_INTERVAL_MILLIS = 1_000L
 
 @Composable
 fun SignRecognitionScreen(
+    isSessionActive: Boolean,
     modifier: Modifier = Modifier,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit = {},
 ) {
     // 권한은 MainActivity에서 이미 허용되었으므로 즉시 카메라 프리뷰를 실행합니다.
     CameraPreviewContent(
+        isSessionActive = isSessionActive,
         onFrameAvailable = onFrameAvailable,
         modifier = modifier,
     )
@@ -52,6 +54,7 @@ fun SignRecognitionScreen(
 
 @Composable
 private fun CameraPreviewContent(
+    isSessionActive: Boolean,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -67,13 +70,18 @@ private fun CameraPreviewContent(
             }
         }
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(appContext) }
-    val analyzerExecutor = remember { Executors.newSingleThreadExecutor() }
     val analyzedFrameCount = remember { AtomicLong(0L) }
     var cameraErrorMessage by remember { mutableStateOf<String?>(null) }
     var frameCount by remember { mutableStateOf(0L) }
     var fps by remember { mutableStateOf(0.0) }
 
-    LaunchedEffect(analyzedFrameCount) {
+    LaunchedEffect(analyzedFrameCount, isSessionActive) {
+        if (!isSessionActive) {
+            frameCount = 0L
+            fps = 0.0
+            return@LaunchedEffect
+        }
+
         var previousFrameCount = analyzedFrameCount.get()
         var previousSampleTimeMillis = SystemClock.elapsedRealtime()
 
@@ -95,6 +103,40 @@ private fun CameraPreviewContent(
         }
     }
 
+    if (isSessionActive) {
+        ActiveCameraBinding(
+            lifecycleOwner = lifecycleOwner,
+            previewView = previewView,
+            cameraProviderFuture = cameraProviderFuture,
+            orientation = configuration.orientation,
+            onFrameAvailable = { frame ->
+                analyzedFrameCount.incrementAndGet()
+                currentOnFrameAvailable(frame)
+            },
+            onCameraErrorChanged = { message -> cameraErrorMessage = message },
+        )
+    }
+
+    CameraPreviewBox(
+        previewView = previewView,
+        cameraErrorMessage = cameraErrorMessage,
+        frameCount = frameCount,
+        fps = fps,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ActiveCameraBinding(
+    lifecycleOwner: LifecycleOwner,
+    previewView: PreviewView,
+    cameraProviderFuture: ListenableFuture<ProcessCameraProvider>,
+    orientation: Int,
+    onFrameAvailable: (YuvAnalysisFrame) -> Unit,
+    onCameraErrorChanged: (String?) -> Unit,
+) {
+    val analyzerExecutor = remember { Executors.newSingleThreadExecutor() }
+
     DisposableEffect(analyzerExecutor) {
         onDispose { analyzerExecutor.shutdown() }
     }
@@ -104,20 +146,9 @@ private fun CameraPreviewContent(
         previewView = previewView,
         cameraProviderFuture = cameraProviderFuture,
         analyzerExecutor = analyzerExecutor,
-        orientation = configuration.orientation,
-        onFrameAvailable = { frame ->
-            analyzedFrameCount.incrementAndGet()
-            currentOnFrameAvailable(frame)
-        },
-        onCameraErrorChanged = { message -> cameraErrorMessage = message },
-    )
-
-    CameraPreviewBox(
-        previewView = previewView,
-        cameraErrorMessage = cameraErrorMessage,
-        frameCount = frameCount,
-        fps = fps,
-        modifier = modifier,
+        orientation = orientation,
+        onFrameAvailable = onFrameAvailable,
+        onCameraErrorChanged = onCameraErrorChanged,
     )
 }
 
@@ -164,7 +195,9 @@ private fun CameraBindingEffect(
 
         onDispose {
             boundAnalysisUseCase?.clearAnalyzer()
-            runCatching { cameraProviderFuture.get().unbindAll() }
+            if (cameraProviderFuture.isDone) {
+                runCatching { cameraProviderFuture.get().unbindAll() }
+            }
         }
     }
 }

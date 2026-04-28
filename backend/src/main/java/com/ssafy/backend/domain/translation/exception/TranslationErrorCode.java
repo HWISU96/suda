@@ -4,7 +4,6 @@ import com.ssafy.backend.global.exception.ErrorCode;
 import org.springframework.http.HttpStatus;
 
 public enum TranslationErrorCode implements ErrorCode {
-  EMPTY_WORDS("TRANSLATION_EMPTY_WORDS", HttpStatus.UNPROCESSABLE_ENTITY, "수어 단어 배열이 비어 있습니다."),
   SIGN_CORRECTION_FAILED(
       "TRANSLATION_SIGN_CORRECTION_FAILED", HttpStatus.BAD_GATEWAY, "수어 문맥 보정 처리에 실패했습니다."),
   TEXT_TO_SPEECH_FAILED(

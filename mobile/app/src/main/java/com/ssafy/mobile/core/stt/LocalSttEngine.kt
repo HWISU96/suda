@@ -87,7 +87,7 @@ class LocalSttEngine
                 }
 
                 override fun onEndOfSpeech() {
-                    // 음성 종료 시점 처리 필요 시 구현
+                    _events.tryEmit(SttEvent.Stopped)
                 }
 
                 override fun onError(error: Int) {
@@ -110,6 +110,7 @@ class LocalSttEngine
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     if (!matches.isNullOrEmpty()) {
                         _events.tryEmit(SttEvent.Results(matches[0]))
+                        _events.tryEmit(SttEvent.Stopped)
                     }
                 }
 

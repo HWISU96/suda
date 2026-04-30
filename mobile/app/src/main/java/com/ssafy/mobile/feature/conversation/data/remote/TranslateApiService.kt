@@ -4,6 +4,7 @@ import com.ssafy.mobile.feature.conversation.data.remote.model.SignToSpeechReque
 import com.ssafy.mobile.feature.conversation.data.remote.model.SignToSpeechResponse
 import com.ssafy.mobile.feature.conversation.data.remote.model.SpeechToTextResponse
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Multipart
@@ -31,8 +32,8 @@ interface TranslateApiService {
     @POST("v1/translation/speech-to-text")
     suspend fun translateSpeechToText(
         @Part audioFile: MultipartBody.Part,
-        @Part("locale") locale: String? = "ko-KR",
-        @Part("audioMimeType") audioMimeType: String? = null,
+        @Part("locale") locale: RequestBody,
+        @Part("audioMimeType") audioMimeType: RequestBody,
         @Query("dryRun") dryRun: Boolean = false,
     ): Response<SpeechToTextResponse>
 }

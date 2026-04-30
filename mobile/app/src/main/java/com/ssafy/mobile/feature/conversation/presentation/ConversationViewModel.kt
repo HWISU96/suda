@@ -1,5 +1,6 @@
 package com.ssafy.mobile.feature.conversation.presentation
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.mobile.core.audio.AndroidAudioRecorder
@@ -19,10 +20,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 enum class SessionState {
@@ -70,6 +74,7 @@ class ConversationViewModel
         private var translationJob: Job? = null
         private var completionTimerJob: Job? = null
         private var sttJob: Job? = null
+        private var cloudSttJob: Job? = null
         private var currentSttSessionId = 0
         private var isResultsReceived = false
         private var isStoppedReceived = false
@@ -78,7 +83,16 @@ class ConversationViewModel
             // 네트워크 상태 모니터링
             viewModelScope.launch {
                 networkMonitor.isOnline.collect { online ->
+                    val wasOnline = _isOnline.value
                     _isOnline.value = online
+                    if (
+                        wasOnline != online &&
+                        _sessionState.value == SessionState.Active &&
+                        !isTtsPlaying
+                    ) {
+                        stopRecordingForStt()
+                        startRecordingForStt()
+                    }
                 }
             }
 
@@ -188,11 +202,140 @@ class ConversationViewModel
             isStoppedReceived = false
 
             if (_isOnline.value) {
-                androidAudioRecorder.start()
+                startCloudRecordingLoop()
+            } else {
+                startLocalSttListening()
             }
+        }
+
+        private fun startLocalSttListening() {
+            cloudSttJob?.cancel()
+            cloudSttJob = null
+            androidAudioRecorder.stop()
             currentSttSessionId++
             sttEngine.startListening(currentSttSessionId)
         }
+
+        private fun startCloudRecordingLoop() {
+            if (cloudSttJob?.isActive == true) return
+
+            sttEngine.stopListening()
+            currentSttSessionId++
+
+            cloudSttJob =
+                viewModelScope.launch {
+                    while (isActive && canUseCloudStt()) {
+                        val fileName = "stt_audio_$currentSttSessionId"
+                        val started = androidAudioRecorder.start(fileName)
+                        if (!started) {
+                            Log.w(TAG, "Cloud STT recorder start failed")
+                            delay(CLOUD_STT_RETRY_DELAY_MS)
+                            continue
+                        }
+
+                        Log.d(TAG, "Cloud STT recording started: $fileName")
+                        val audioFile = waitForCloudSpeechFile()
+                        if (audioFile != null && canUseCloudStt()) {
+                            _sttText.value = "대화 내용을 분석 중입니다..."
+                            performCloudStt(audioFile)
+                            return@launch
+                        }
+
+                        delay(CLOUD_STT_RETRY_DELAY_MS)
+                    }
+                }
+        }
+
+        private suspend fun waitForCloudSpeechFile(): File? {
+            val startedAt = System.currentTimeMillis()
+            var speechDetected = false
+            var lastVoiceAt = startedAt
+            var peakAmplitude = 0
+            var stopReason = CLOUD_STT_STOP_REASON_CANCELLED
+
+            while (currentCoroutineContext().isActive && canUseCloudStt()) {
+                delay(CLOUD_STT_POLL_INTERVAL_MS)
+
+                val amplitude = androidAudioRecorder.getMaxAmplitude()
+                peakAmplitude = maxOf(peakAmplitude, amplitude)
+                _micVolume.value = amplitude.toFloat()
+
+                val now = System.currentTimeMillis()
+                val recordingDuration = now - startedAt
+                if (amplitude >= CLOUD_STT_VOICE_THRESHOLD) {
+                    speechDetected = true
+                    lastVoiceAt = now
+                }
+
+                val currentStopReason =
+                    getCloudRecordingStopReason(
+                        speechDetected,
+                        recordingDuration,
+                        now - lastVoiceAt,
+                    )
+                if (currentStopReason != null) {
+                    stopReason = currentStopReason
+                    break
+                }
+            }
+
+            val file = androidAudioRecorder.stop()
+            val recordingDuration = System.currentTimeMillis() - startedAt
+            Log.d(
+                TAG,
+                "Cloud STT recording stopped: path=${file?.absolutePath}, " +
+                    "size=${file?.length()}, speechDetected=$speechDetected, " +
+                    "peakAmplitude=$peakAmplitude, duration=$recordingDuration, " +
+                    "reason=$stopReason",
+            )
+
+            return file?.takeIf {
+                shouldUploadCloudAudioFile(
+                    file = it,
+                    speechDetected = speechDetected,
+                    peakAmplitude = peakAmplitude,
+                )
+            } ?: run {
+                Log.d(
+                    TAG,
+                    "Cloud STT recording discarded: speechDetected=$speechDetected, " +
+                        "peakAmplitude=$peakAmplitude, size=${file?.length()}",
+                )
+                null
+            }
+        }
+
+        private fun canUseCloudStt(): Boolean =
+            _sessionState.value == SessionState.Active && _isOnline.value && !isTtsPlaying
+
+        private fun getCloudRecordingStopReason(
+            speechDetected: Boolean,
+            recordingDuration: Long,
+            silenceDuration: Long,
+        ): String? =
+            when {
+                speechDetected &&
+                    recordingDuration >= CLOUD_STT_MIN_RECORDING_MS &&
+                    silenceDuration >= CLOUD_STT_SILENCE_TIMEOUT_MS ->
+                    CLOUD_STT_STOP_REASON_SILENCE
+                recordingDuration >= CLOUD_STT_MAX_RECORDING_MS ->
+                    CLOUD_STT_STOP_REASON_MAX_DURATION
+                !speechDetected &&
+                    recordingDuration >= CLOUD_STT_NO_SPEECH_TIMEOUT_MS ->
+                    CLOUD_STT_STOP_REASON_NO_SPEECH
+                else -> null
+            }
+
+        private fun isValidCloudAudioFile(file: File): Boolean =
+            file.exists() && file.length() >= CLOUD_STT_MIN_FILE_BYTES
+
+        private fun shouldUploadCloudAudioFile(
+            file: File,
+            speechDetected: Boolean,
+            peakAmplitude: Int,
+        ): Boolean =
+            isValidCloudAudioFile(file) &&
+                (speechDetected || peakAmplitude >= CLOUD_STT_FALLBACK_VOICE_THRESHOLD)
 
         private suspend fun checkAndRestartStt() {
             if (isResultsReceived && isStoppedReceived) {
@@ -203,6 +346,8 @@ class ConversationViewModel
         }
 
         private fun stopRecordingForStt(): File? {
+            cloudSttJob?.cancel()
+            cloudSttJob = null
             sttEngine.stopListening()
             return androidAudioRecorder.stop()
         }
@@ -218,7 +363,9 @@ class ConversationViewModel
             sttJob =
                 viewModelScope.launch {
                     sttEngine.events.collect { event ->
-                        if (event.sessionId != currentSttSessionId) return@collect
+                        if (event.sessionId != currentSttSessionId || _isOnline.value) {
+                            return@collect
+                        }
 
                         when (event) {
                             is SttEvent.PartialResults -> {
@@ -230,20 +377,10 @@ class ConversationViewModel
                                 )
                             }
                             is SttEvent.Results -> {
-                                if (_isOnline.value) {
-                                    val file = androidAudioRecorder.stop()
-                                    if (file != null) {
-                                        _sttText.value = "대화 내용을 분석 중입니다..."
-                                        performCloudStt(file)
-                                    } else {
-                                        _sttText.value = "" // 유효하지 않은 녹음은 텍스트 초기화
-                                    }
-                                } else {
-                                    updateOrAddChildMessage(
-                                        event.text,
-                                        isFinal = true,
-                                    )
-                                }
+                                updateOrAddChildMessage(
+                                    event.text,
+                                    isFinal = true,
+                                )
                                 isResultsReceived = true
                                 checkAndRestartStt()
                             }
@@ -261,6 +398,7 @@ class ConversationViewModel
                             }
                             is SttEvent.VolumeChanged -> _micVolume.value = event.db
                             is SttEvent.Error -> {
+                                Log.w(TAG, "Local STT error: ${event.message}")
                                 isResultsReceived = true
                                 isStoppedReceived = false
                                 // 에러 처리 (필요시 UI 알림 추가)
@@ -274,20 +412,56 @@ class ConversationViewModel
 
         private fun performCloudStt(audioFile: File) {
             viewModelScope.launch {
+                var restartDelayMs = STT_RESTART_DELAY_MS
+                Log.d(
+                    TAG,
+                    "Cloud STT upload started: path=${audioFile.absolutePath}, " +
+                        "size=${audioFile.length()}, mime=audio/mp4",
+                )
                 translateRepository
                     .translateSpeechToText(audioFile, "audio/mp4")
                     .onSuccess { response ->
                         val displayText =
-                            if (response.corrected) {
-                                response.correctedText
-                            } else {
-                                response.recognizedText
-                            }
+                            buildCloudSttDisplayText(
+                                recognizedText = response.recognizedText,
+                                correctedText = response.correctedText,
+                                corrected = response.corrected,
+                            )
                         updateOrAddChildMessage(displayText, isFinal = true)
                         _sttText.value = ""
+                        Log.d(
+                            TAG,
+                            "Cloud STT upload succeeded: recognized=${response.recognizedText}, " +
+                                "corrected=${response.correctedText}, isCorrected=${response.corrected}",
+                        )
                     }.onFailure {
+                        Log.w(TAG, "Cloud STT upload failed", it)
+                        restartDelayMs = CLOUD_STT_FAILURE_RETRY_DELAY_MS
                         _sttText.value = "인식에 실패했습니다."
                     }
+
+                if (_sessionState.value == SessionState.Active && !isTtsPlaying) {
+                    delay(restartDelayMs)
+                    startRecordingForStt()
+                }
+            }
+        }
+
+        private fun buildCloudSttDisplayText(
+            recognizedText: String,
+            correctedText: String,
+            corrected: Boolean,
+        ): String {
+            val normalizedRecognized = recognizedText.trim()
+            val normalizedCorrected = correctedText.trim()
+            return if (
+                corrected &&
+                normalizedCorrected.isNotBlank() &&
+                normalizedRecognized != normalizedCorrected
+            ) {
+                "원문: $normalizedRecognized\n수정: $normalizedCorrected"
+            } else {
+                normalizedRecognized.ifBlank { normalizedCorrected }
             }
         }
 
@@ -320,6 +494,8 @@ class ConversationViewModel
             translationJob?.cancel()
             completionTimerJob?.cancel()
             sttJob?.cancel()
+            cloudSttJob?.cancel()
+            cloudSttJob = null
             audioPlayer.stop()
             ttsPlayer.stop()
         }
@@ -383,7 +559,22 @@ class ConversationViewModel
         }
 
         companion object {
+            private const val TAG = "ConversationViewModel"
             private const val COMPLETION_THRESHOLD_MS = 2000L
             private const val STT_RESTART_DELAY_MS = 500L
+            private const val CLOUD_STT_POLL_INTERVAL_MS = 150L
+            private const val CLOUD_STT_MIN_RECORDING_MS = 500L
+            private const val CLOUD_STT_SILENCE_TIMEOUT_MS = 500L
+            private const val CLOUD_STT_MAX_RECORDING_MS = 2800L
+            private const val CLOUD_STT_NO_SPEECH_TIMEOUT_MS = 1200L
+            private const val CLOUD_STT_RETRY_DELAY_MS = 500L
+            private const val CLOUD_STT_FAILURE_RETRY_DELAY_MS = 1500L
+            private const val CLOUD_STT_VOICE_THRESHOLD = 5000
+            private const val CLOUD_STT_FALLBACK_VOICE_THRESHOLD = 5000
+            private const val CLOUD_STT_MIN_FILE_BYTES = 1024L
+            private const val CLOUD_STT_STOP_REASON_SILENCE = "silence"
+            private const val CLOUD_STT_STOP_REASON_MAX_DURATION = "max_duration"
+            private const val CLOUD_STT_STOP_REASON_NO_SPEECH = "no_speech"
+            private const val CLOUD_STT_STOP_REASON_CANCELLED = "cancelled"
         }
     }

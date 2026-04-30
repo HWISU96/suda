@@ -1,13 +1,16 @@
 package com.ssafy.mobile.core.vision
 
 import com.ssafy.mobile.core.model.SignRecognitionEvent
+import com.ssafy.mobile.core.model.SignRecognitionMetrics
 import com.ssafy.mobile.core.vision.feature.LandmarkFeatureEncoder
 import com.ssafy.mobile.core.vision.feature.SignSequenceBuffer
 import com.ssafy.mobile.core.vision.inference.FakeSignInferenceAdapter
 import com.ssafy.mobile.core.vision.inference.SignInferenceAdapter
+import com.ssafy.mobile.core.vision.inference.SignInferenceResult
 import com.ssafy.mobile.core.vision.landmark.LandmarkFrameResult
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlin.system.measureNanoTime
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -15,10 +18,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 class RealSignRecognitionEngine(
     private val featureEncoder: LandmarkFeatureEncoder = LandmarkFeatureEncoder(),
-    private val sequenceBuffer: SignSequenceBuffer = SignSequenceBuffer(),
+    private var sequenceBuffer: SignSequenceBuffer = SignSequenceBuffer(),
     private val inferenceAdapter: SignInferenceAdapter = FakeSignInferenceAdapter(),
     private val noHandsDetectionTracker: NoHandsDetectionTracker = NoHandsDetectionTracker(),
-    private val predictionStabilizer: SignPredictionStabilizer = SignPredictionStabilizer(),
+    private var predictionStabilizer: SignPredictionStabilizer = SignPredictionStabilizer(),
     private val logger: SignPipelineLogger = SignPipelineLogger(),
 ) : SignRecognitionEngine {
     @Inject
@@ -34,6 +37,7 @@ class RealSignRecognitionEngine(
     )
 
     private val isStarted = AtomicBoolean(false)
+    private var config = SignRecognitionConfig()
     private var hasSeenHandsInSegment = false
     private val _events =
         MutableSharedFlow<SignRecognitionEvent>(
@@ -63,6 +67,23 @@ class RealSignRecognitionEngine(
         resetSessionState()
         logger.logEngineStopped()
         _events.tryEmit(SignRecognitionEvent.Stopped)
+    }
+
+    override fun updateConfig(config: SignRecognitionConfig) {
+        this.config = config
+        sequenceBuffer =
+            SignSequenceBuffer(
+                sequenceLength = config.sequenceLength,
+                minimumHandFrameRatio = config.minimumHandFrameRatio,
+            )
+        predictionStabilizer =
+            SignPredictionStabilizer(
+                confidenceThreshold = config.confidenceThreshold,
+                windowSize = config.smoothingWindowSize,
+                requiredVotes = config.smoothingRequiredVotes,
+                emitCooldownMs = config.emitCooldownMs,
+            )
+        resetRecognitionState()
     }
 
     override fun submitFrame(frame: LandmarkFrameResult) {
@@ -99,14 +120,41 @@ class RealSignRecognitionEngine(
         logger.logFeatureProbe(feature.probe)
         sequenceBuffer.add(feature)
         val sequence = sequenceBuffer.buildReadySequenceInput(logger)
-        val result = sequence?.let { input -> inferenceAdapter.predict(input) }
+        var tfliteInferenceMs: Double? = null
+        var result: SignInferenceResult? = null
+        if (sequence != null) {
+            val elapsedNanos =
+                measureNanoTime {
+                    result = inferenceAdapter.predict(sequence)
+                }
+            tfliteInferenceMs = elapsedNanos / NANOS_PER_MILLIS
+        }
         result?.let { inferenceResult ->
             logger.logInferenceResult(
-                sequenceSize = sequence.size,
+                sequenceSize = sequence?.size ?: 0,
                 gloss = inferenceResult.gloss,
                 confidence = inferenceResult.confidence,
             )
         }
+        _events.tryEmit(
+            SignRecognitionEvent.Metrics(
+                snapshot =
+                    SignRecognitionMetrics(
+                        timestampMs = frame.timestampMs,
+                        currentGloss = result?.gloss,
+                        confidence = result?.confidence,
+                        hasHands = frame.hasHands,
+                        poseLandmarkCount = frame.pose.landmarks.size,
+                        leftHandLandmarkCount = frame.leftHand.landmarks.size,
+                        rightHandLandmarkCount = frame.rightHand.landmarks.size,
+                        lipLandmarkCount = frame.lips.landmarks.size,
+                        sequenceFrameCount = sequenceBuffer.size,
+                        sequenceHandFrameCount = sequenceBuffer.handFrameCount,
+                        tfliteInferenceMs = tfliteInferenceMs,
+                        config = config,
+                    ),
+            ),
+        )
         val stablePrediction =
             result?.let { inferenceResult ->
                 predictionStabilizer.onPrediction(
@@ -167,6 +215,7 @@ class RealSignRecognitionEngine(
 
     private companion object {
         const val EVENT_BUFFER_CAPACITY = 64
+        const val NANOS_PER_MILLIS = 1_000_000.0
     }
 }
 

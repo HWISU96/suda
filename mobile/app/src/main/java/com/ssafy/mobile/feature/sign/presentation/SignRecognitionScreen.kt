@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "LongParameterList")
+
 package com.ssafy.mobile.feature.sign.presentation
 
 import android.os.SystemClock
@@ -31,7 +33,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.common.util.concurrent.ListenableFuture
-import com.ssafy.mobile.BuildConfig
 import com.ssafy.mobile.core.vision.landmark.LandmarkFrameResult
 import com.ssafy.mobile.core.vision.landmark.MediaPipeHolisticLandmarkExtractor
 import java.util.Locale
@@ -42,6 +43,7 @@ import kotlinx.coroutines.delay
 
 private const val DEBUG_OVERLAY_BACKGROUND_ALPHA = 0.72f
 private const val FPS_SAMPLE_INTERVAL_MILLIS = 1_000L
+private const val DEBUG_OVERLAY_UPDATE_INTERVAL_MILLIS = 100L
 private const val FRONT_CAMERA_PREVIEW_IS_MIRRORED = true
 private val DEBUG_OVERLAY_BACKGROUND = Color.Black.copy(alpha = DEBUG_OVERLAY_BACKGROUND_ALPHA)
 private val DEBUG_OVERLAY_TEXT_COLOR = Color.White
@@ -50,14 +52,20 @@ private val DEBUG_OVERLAY_TEXT_COLOR = Color.White
 fun SignRecognitionScreen(
     isSessionActive: Boolean,
     modifier: Modifier = Modifier,
+    cameraAnalysisSettings: CameraAnalysisSettings = CameraAnalysisSettings(),
+    showDebugOverlay: Boolean = false,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit = {},
     onLandmarkFrameAvailable: (LandmarkFrameResult) -> Unit = {},
+    onCameraMetricsChanged: (CameraPerformanceMetrics) -> Unit = {},
 ) {
     // 권한은 MainActivity에서 이미 허용되었으므로 즉시 카메라 프리뷰를 실행합니다.
     CameraPreviewContent(
         isSessionActive = isSessionActive,
+        cameraAnalysisSettings = cameraAnalysisSettings,
+        showDebugOverlay = showDebugOverlay,
         onFrameAvailable = onFrameAvailable,
         onLandmarkFrameAvailable = onLandmarkFrameAvailable,
+        onCameraMetricsChanged = onCameraMetricsChanged,
         modifier = modifier,
     )
 }
@@ -65,8 +73,11 @@ fun SignRecognitionScreen(
 @Composable
 private fun CameraPreviewContent(
     isSessionActive: Boolean,
+    cameraAnalysisSettings: CameraAnalysisSettings,
+    showDebugOverlay: Boolean,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
     onLandmarkFrameAvailable: (LandmarkFrameResult) -> Unit,
+    onCameraMetricsChanged: (CameraPerformanceMetrics) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -74,6 +85,7 @@ private fun CameraPreviewContent(
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnFrameAvailable by rememberUpdatedState(onFrameAvailable)
     val currentOnLandmarkFrameAvailable by rememberUpdatedState(onLandmarkFrameAvailable)
+    val currentOnCameraMetricsChanged by rememberUpdatedState(onCameraMetricsChanged)
     val appContext = remember(context) { context.applicationContext }
     val landmarkExtractor =
         remember(appContext) {
@@ -92,6 +104,7 @@ private fun CameraPreviewContent(
     var fps by remember { mutableStateOf(0.0) }
     var latestLandmarkFrame by remember { mutableStateOf<LandmarkFrameResult?>(null) }
     var latestAnalysisImageSize by remember { mutableStateOf(IntSize.Zero) }
+    val lastDebugOverlayUpdateAtMs = remember { AtomicLong(0L) }
 
     DisposableEffect(landmarkExtractor) {
         onDispose { landmarkExtractor.close() }
@@ -110,6 +123,12 @@ private fun CameraPreviewContent(
         onStatsChanged = { currentFrameCount, currentFps ->
             frameCount = currentFrameCount
             fps = currentFps
+            currentOnCameraMetricsChanged(
+                CameraPerformanceMetrics(
+                    frameCount = currentFrameCount,
+                    cameraFps = currentFps,
+                ),
+            )
         },
     )
 
@@ -119,19 +138,44 @@ private fun CameraPreviewContent(
             previewView = previewView,
             cameraProviderFuture = cameraProviderFuture,
             orientation = configuration.orientation,
+            cameraAnalysisSettings = cameraAnalysisSettings,
             onFrameAvailable = { frame ->
                 analyzedFrameCount.incrementAndGet()
+                val pipelineStartedAtMs = SystemClock.elapsedRealtime()
+                val mediaPipeStartedAtNanos = SystemClock.elapsedRealtimeNanos()
                 val landmarkFrame =
                     landmarkExtractor.detect(
                         bitmap = frame.bitmap,
                         timestampMs = frame.timestampMs,
                     )
-                previewView.post {
-                    latestLandmarkFrame = landmarkFrame
-                    latestAnalysisImageSize = IntSize(frame.bitmap.width, frame.bitmap.height)
+                val mediaPipeMs =
+                    (SystemClock.elapsedRealtimeNanos() - mediaPipeStartedAtNanos) /
+                        NANOS_PER_MILLIS
+                if (showDebugOverlay) {
+                    val nowMs = SystemClock.elapsedRealtime()
+                    val lastOverlayUpdateAtMs = lastDebugOverlayUpdateAtMs.get()
+                    if (
+                        nowMs - lastOverlayUpdateAtMs >=
+                        DEBUG_OVERLAY_UPDATE_INTERVAL_MILLIS
+                    ) {
+                        lastDebugOverlayUpdateAtMs.set(nowMs)
+                        previewView.post {
+                            latestLandmarkFrame = landmarkFrame
+                            latestAnalysisImageSize =
+                                IntSize(frame.bitmap.width, frame.bitmap.height)
+                        }
+                    }
                 }
                 currentOnLandmarkFrameAvailable(landmarkFrame)
                 currentOnFrameAvailable(frame)
+                currentOnCameraMetricsChanged(
+                    CameraPerformanceMetrics(
+                        mediaPipeMs = mediaPipeMs,
+                        pipelineLatencyMs =
+                            (SystemClock.elapsedRealtime() - pipelineStartedAtMs).toDouble(),
+                        analysisImageSize = IntSize(frame.bitmap.width, frame.bitmap.height),
+                    ),
+                )
             },
             onCameraErrorChanged = { message -> cameraErrorMessage = message },
         )
@@ -144,6 +188,7 @@ private fun CameraPreviewContent(
         fps = fps,
         landmarkFrame = latestLandmarkFrame,
         analysisImageSize = latestAnalysisImageSize,
+        showDebugOverlay = showDebugOverlay,
         modifier = modifier,
     )
 }
@@ -187,6 +232,7 @@ private fun ActiveCameraBinding(
     previewView: PreviewView,
     cameraProviderFuture: ListenableFuture<ProcessCameraProvider>,
     orientation: Int,
+    cameraAnalysisSettings: CameraAnalysisSettings,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
     onCameraErrorChanged: (String?) -> Unit,
 ) {
@@ -202,6 +248,7 @@ private fun ActiveCameraBinding(
         cameraProviderFuture = cameraProviderFuture,
         analyzerExecutor = analyzerExecutor,
         orientation = orientation,
+        cameraAnalysisSettings = cameraAnalysisSettings,
         onFrameAvailable = onFrameAvailable,
         onCameraErrorChanged = onCameraErrorChanged,
     )
@@ -214,6 +261,7 @@ private fun CameraBindingEffect(
     cameraProviderFuture: ListenableFuture<ProcessCameraProvider>,
     analyzerExecutor: Executor,
     orientation: Int,
+    cameraAnalysisSettings: CameraAnalysisSettings,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
     onCameraErrorChanged: (String?) -> Unit,
 ) {
@@ -224,6 +272,7 @@ private fun CameraBindingEffect(
         cameraProviderFuture,
         analyzerExecutor,
         orientation,
+        cameraAnalysisSettings,
     ) {
         val executor = ContextCompat.getMainExecutor(context)
         var boundAnalysisUseCase: ImageAnalysis? = null
@@ -236,6 +285,7 @@ private fun CameraBindingEffect(
                         lifecycleOwner = lifecycleOwner,
                         previewView = previewView,
                         analyzerExecutor = analyzerExecutor,
+                        settings = cameraAnalysisSettings,
                         onFrameAvailable = onFrameAvailable,
                     )
                 }.onSuccess { analysisUseCase ->
@@ -265,6 +315,7 @@ private fun CameraPreviewBox(
     fps: Double,
     landmarkFrame: LandmarkFrameResult?,
     analysisImageSize: IntSize,
+    showDebugOverlay: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -273,7 +324,7 @@ private fun CameraPreviewBox(
             modifier = Modifier.fillMaxSize(),
         )
 
-        if (BuildConfig.DEBUG) {
+        if (showDebugOverlay) {
             LandmarkDebugOverlay(
                 frame = landmarkFrame,
                 analysisImageSize = analysisImageSize,
@@ -282,15 +333,17 @@ private fun CameraPreviewBox(
             )
         }
 
-        FrameAnalysisDebugOverlay(
-            frameCount = frameCount,
-            fps = fps,
-            landmarkFrame = landmarkFrame,
-            modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp),
-        )
+        if (showDebugOverlay) {
+            FrameAnalysisDebugOverlay(
+                frameCount = frameCount,
+                fps = fps,
+                landmarkFrame = landmarkFrame,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp),
+            )
+        }
 
         cameraErrorMessage?.let { message ->
             Text(
@@ -306,6 +359,8 @@ private fun CameraPreviewBox(
         }
     }
 }
+
+private const val NANOS_PER_MILLIS = 1_000_000.0
 
 @Composable
 private fun FrameAnalysisDebugOverlay(

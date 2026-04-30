@@ -9,6 +9,8 @@ interface SignRecognitionEngine {
 
     fun start()
 
+    fun updateConfig(config: SignRecognitionConfig)
+
     fun submitFrame(frame: LandmarkFrameResult)
 
     fun stop()

@@ -56,7 +56,7 @@ class SignSequenceBuffer(
 
     companion object {
         const val DEFAULT_SEQUENCE_LENGTH = SignModelContract.SEQUENCE_LENGTH
-        private const val DEFAULT_MINIMUM_HAND_FRAME_RATIO = 0.33f
+        const val DEFAULT_MINIMUM_HAND_FRAME_RATIO = 0.33f
         private const val MINIMUM_HAND_FRAMES = 1
     }
 }

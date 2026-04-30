@@ -1,34 +1,23 @@
 import cv2
 import torch
-import json
 import numpy as np
 import mediapipe as mp
-from collections import deque
 from model import KSLTransformer
+import json
+from PIL import Image, ImageDraw, ImageFont
+from collections import deque
 
-# 모바일-AI 계약 스펙과 동일한 환경 세팅
+# collect_data.py와 동일한 설정
+INPUT_DIM = 141
 MAX_LEN = 30
-CONFIDENCE_THRESHOLD = 0.85
+POSE_IDXS = [0, 11, 12, 13, 14] # 코, 양어깨, 양팔꿈치
 
-# 입술 랜드마크 인덱스 (40개)
-MOUTH_INDICES = [
-    61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 185, 40, 39, 37, 0, 267, 269, 270, 409, 
-    78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 191, 80, 81, 82, 13, 312, 311, 310, 415
-]
-
-def load_label_map(path='models/label_map.json'):
-    with open(path, 'r', encoding='utf-8') as f:
-        # JSON 키는 무조건 문자열이므로 정수형으로 변환
-        label_map = {int(k): v for k, v in json.load(f).items()}
-    return label_map
-
-def normalize_frame(frame_data):
-    """
-    모바일 전처리 스펙(2-1)과 완벽하게 동일한 정규화 함수
-    frame_data: (345,) 1차원 배열
-    """
-    pts = frame_data.reshape(-1, 3)
-    l_shoulder, r_shoulder = pts[11], pts[12]
+def normalize_landmarks(features):
+    """dataset.py와 동일한 141차원 정규화 로직"""
+    pts = features.reshape(-1, 3)
+    # 141차원 기준 어깨 인덱스 (43, 44)
+    l_shoulder = pts[43]
+    r_shoulder = pts[44]
     
     shoulder_center = (l_shoulder + r_shoulder) / 2.0
     pts_translated = pts - shoulder_center
@@ -40,133 +29,125 @@ def normalize_frame(frame_data):
     pts_scaled = pts_translated / shoulder_width
     return pts_scaled.flatten()
 
+def extract_keypoints(results, last_pose):
+    """collect_data.py와 100% 동일한 순서와 규격으로 추출 (Forward Fill 적용)"""
+    features = []
+    
+    # 1. Left Hand (63)
+    if results.left_hand_landmarks:
+        for lm in results.left_hand_landmarks.landmark:
+            features.extend([lm.x, lm.y, lm.z])
+    else:
+        features.extend([0.0] * 21 * 3)
+
+    # 2. Right Hand (63)
+    if results.right_hand_landmarks:
+        for lm in results.right_hand_landmarks.landmark:
+            features.extend([lm.x, lm.y, lm.z])
+    else:
+        features.extend([0.0] * 21 * 3)
+
+    # 3. Pose (15) - Forward Fill
+    if results.pose_landmarks:
+        pose_landmarks = results.pose_landmarks.landmark
+        current_pose = []
+        for idx in POSE_IDXS:
+            lm = pose_landmarks[idx]
+            current_pose.extend([lm.x, lm.y, lm.z])
+        features.extend(current_pose)
+        last_pose = current_pose # 업데이트
+    else:
+        if last_pose is not None:
+            features.extend(last_pose)
+        else:
+            features.extend([0.0] * len(POSE_IDXS) * 3)
+
+    # 추출된 생좌표를 즉시 정규화해서 반환
+    raw_features = np.array(features, dtype=np.float32)
+    return normalize_landmarks(raw_features), last_pose
+
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # 1. 라벨 매핑 및 모델 로드
+    # 모델 및 라벨 로드
     try:
-        label_map = load_label_map()
-        num_classes = len(label_map)
-    except FileNotFoundError:
-        print("❌ label_map.json 파일이 없습니다. 먼저 train.py를 실행하세요.")
-        return
-
-    model = KSLTransformer(input_dim=345, num_classes=num_classes, d_model=128, num_heads=4, num_layers=2)
-    try:
-        model.load_state_dict(torch.load('models/best_sign_model.pt', map_location=device))
-        model.to(device)
+        with open('models/new_1_best_model_9873/label_map_1.json', 'r', encoding='utf-8') as f:
+            label_map = {int(k): v for k, v in json.load(f).items()}
+        
+        model = KSLTransformer(input_dim=INPUT_DIM, num_classes=len(label_map), d_model=128, num_heads=8, num_layers=3).to(device)
+        # 141차원 전용으로 새로 학습된 모델 파일을 로드해야 함
+        model.load_state_dict(torch.load('models/new_1_best_model_9873/best_sign_model_1.pt', map_location=device))
         model.eval()
-        print("✅ 모델 로드 성공!")
-    except FileNotFoundError:
-        print("❌ models/best_sign_model.pt 파일이 없습니다. 먼저 모델을 학습시키세요.")
+        print("✅ KSL Transformer V1 (141-dim) 모델 로드 성공!")
+    except Exception as e:
+        print(f"❌ 모델 로드 실패: {e}")
         return
 
-    # 2. MediaPipe 초기화
     mp_holistic = mp.solutions.holistic
-    cap = cv2.VideoCapture(0) # 0번 웹캠 켜기
+    mp_drawing = mp.solutions.drawing_utils
+    cap = cv2.VideoCapture(0)
     
-    # 프레임 큐 보관용 (길이 30 고정)
-    frame_queue = deque(maxlen=MAX_LEN)
-    prediction_history = deque(maxlen=5) # Smoothing / Voting 용 (최근 5번)
-    
-    # Forward Fill 용도
-    last_pose = np.zeros(33 * 3)
-    last_lh = np.zeros(21 * 3)
-    last_rh = np.zeros(21 * 3)
-    last_mouth = np.zeros(40 * 3)
+    frame_window = deque(maxlen=MAX_LEN)
+    prediction_window = deque(maxlen=5)
+    current_action = "none"
+    last_pose = None # Forward Fill용 변수
 
-    current_action = "대기중..."
-    
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
         while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-                
-            # 좌우 반전 (거울 모드)
-            frame = cv2.flip(frame, 1)
-            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            image.flags.writeable = False
-            results = holistic.process(image)
-            image.flags.writeable = True
+            success, frame = cap.read()
+            if not success: break
             
-            # 3. 랜드마크 추출 및 Forward Fill
-            if results.pose_landmarks:
-                pose = np.array([[res.x, res.y, res.z] for res in results.pose_landmarks.landmark]).flatten()
-                last_pose = pose
-            else:
-                pose = last_pose
-                
-            if results.left_hand_landmarks:
-                lh = np.array([[res.x, res.y, res.z] for res in results.left_hand_landmarks.landmark]).flatten()
-                last_lh = lh
-            else:
-                lh = last_lh
-                
-            if results.right_hand_landmarks:
-                rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten()
-                last_rh = rh
-            else:
-                rh = last_rh
-                
-            if results.face_landmarks:
-                mouth = np.array([[results.face_landmarks.landmark[i].x, 
-                                   results.face_landmarks.landmark[i].y, 
-                                   results.face_landmarks.landmark[i].z] for i in MOUTH_INDICES]).flatten()
-                last_mouth = mouth
-            else:
-                mouth = last_mouth
-                
-            raw_frame_data = np.concatenate([pose, lh, rh, mouth])
+            # 1. AI 분석용 (원본)
+            image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = holistic.process(image_rgb)
             
-            # 4. 정규화 및 큐에 추가
-            norm_frame_data = normalize_frame(raw_frame_data)
-            frame_queue.append(norm_frame_data)
+            # 141차원 키포인트 추출 (Forward Fill 적용)
+            keypoints, last_pose = extract_keypoints(results, last_pose)
+            frame_window.append(keypoints)
             
-            # 5. 큐가 30프레임 꽉 찼을 때 추론 시작
-            if len(frame_queue) == MAX_LEN:
-                # Numpy -> Tensor 변환 (1, 30, 345)
-                input_seq = np.array(frame_queue)
-                input_tensor = torch.FloatTensor(input_seq).unsqueeze(0).to(device)
-                
+            if len(frame_window) == MAX_LEN:
+                input_tensor = torch.FloatTensor(np.array(frame_window)).unsqueeze(0).to(device)
                 with torch.no_grad():
                     logits = model(input_tensor)
-                    probabilities = torch.nn.functional.softmax(logits, dim=1)
+                    probs = torch.softmax(logits, dim=1)
+                    conf, idx = torch.max(probs, 1)
                     
-                    # Top-1 확률 추출
-                    conf, predicted_idx = torch.max(probabilities, 1)
-                    conf = conf.item()
-                    predicted_idx = predicted_idx.item()
-                    predicted_word = label_map[predicted_idx]
-                    
-                    # Confidence Threshold 통과 여부 확인
-                    if conf >= CONFIDENCE_THRESHOLD:
-                        prediction_history.append(predicted_word)
+                    # 신뢰도가 0.8 이상일 때만 투표 후보로 등록
+                    if conf.item() > 0.8:
+                        prediction_window.append(label_map[idx.item()])
                     else:
-                        prediction_history.append("none")
-                        
-                    # Voting 로직 (최근 5번 중 가장 많이 나온 단어가 3번 이상일 때만 표출)
-                    if len(prediction_history) == 5:
-                        most_common_word = max(set(prediction_history), key=prediction_history.count)
-                        if prediction_history.count(most_common_word) >= 3 and most_common_word != "none":
-                            current_action = f"{most_common_word} ({conf*100:.1f}%)"
-                        else:
-                            current_action = "대기중..."
-            
-            # 6. 화면 출력 (한국어 출력은 cv2에서 깨지므로 영어/숫자 기반 렌더링 권장, 여기선 테스트용)
-            # 파이썬 OpenCV는 기본 한글 출력이 깨지므로, 실제 환경에서는 PIL ImageFont 등을 사용해야 합니다.
-            # 여기서는 편의상 영문 폰트를 사용하되, 터미널 로그로 한글 정답을 찍어줍니다.
-            cv2.putText(frame, f"Action: {current_action}", (10, 40), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-            print(f"현재 동작: {current_action}")
-            
-            cv2.imshow('Sign Language Real-time Inference', frame)
-            
-            if cv2.waitKey(10) & 0xFF == ord('q'):
-                break
+                        prediction_window.append("none")
                 
+                # [투표 로직] 윈도우 내에서 가장 빈도가 높은 단어를 현재 액션으로 결정
+                if len(prediction_window) > 0:
+                    current_action = max(set(prediction_window), key=list(prediction_window).count)
+                else:
+                    current_action = "none"
+
+            # --- 시각화 (사용자를 위한 거울 모드) ---
+            # 뼈대 그리기
+            mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+            mp_drawing.draw_landmarks(frame, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+            mp_drawing.draw_landmarks(frame, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+            
+            # 화면 뒤집기
+            display_frame = cv2.flip(frame, 1)
+            
+            # 글씨 쓰기
+            img_pil = Image.fromarray(cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(img_pil)
+            try:
+                font = ImageFont.truetype("malgun.ttf", 35)
+                draw.text((30, 30), f"인식 결과: {current_action}", font=font, fill=(0, 255, 0))
+            except: pass
+            
+            final_frame = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+            cv2.imshow('KSL V1 141-dim Real-time', final_frame)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'): break
+
     cap.release()
     cv2.destroyAllWindows()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -29,10 +29,10 @@ class PositionalEncoding(nn.Module):
         return x
 
 class KSLTransformer(nn.Module):
-    def __init__(self, input_dim=345, num_classes=110, d_model=128, num_heads=4, num_layers=2, dim_feedforward=256, dropout=0.1):
+    def __init__(self, input_dim=141, num_classes=110, d_model=128, num_heads=8, num_layers=3, dim_feedforward=512, dropout=0.1):
         super(KSLTransformer, self).__init__()
         
-        # 1. 입력 차원(345)을 모델 내부 차원(128)으로 축소/확장 (Linear Projection)
+        # 1. 입력 차원(141)을 모델 내부 차원(128)으로 축소/확장 (Linear Projection)
         self.input_projection = nn.Linear(input_dim, d_model)
         
         # 2. 시간에 대한 순서 정보를 부여하는 Positional Encoding
@@ -59,7 +59,7 @@ class KSLTransformer(nn.Module):
         )
 
     def forward(self, x):
-        # x shape: (batch_size, seq_len(30), input_dim(345))
+        # x shape: (batch_size, seq_len(30), input_dim(141))
         
         # Step 1. 임베딩 및 위치 정보 추가
         x = self.input_projection(x)  # (batch_size, 30, 128)

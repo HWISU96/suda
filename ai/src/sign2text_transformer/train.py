@@ -4,12 +4,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from sklearn.metrics import f1_score
 from dataset import create_dataloaders
 from model import KSLTransformer
 
 # 하이퍼파라미터 설정
 DATA_DIR = './s3_downloaded_data' # S3에서 다운받은 .npy 파일들이 있는 최상위 폴더 (단어별 하위 폴더 존재)
-MAX_CLASSES = 30 # 일단 모바일 테스트용으로 30개 단어만 먼저 학습 (전체 학습 시 None으로 변경)
+MAX_CLASSES = None # 전체 110개 단어 학습을 위해 None으로 복구
 BATCH_SIZE = 64
 MAX_LEN = 30
 EPOCHS = 200 # Early Stopping을 믿고 넉넉하게 200으로 상향
@@ -17,26 +18,43 @@ PATIENCE = 15 # 15번 연속 성능 향상이 없으면 조기 종료
 LEARNING_RATE = 1e-3
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def get_unique_filename(base_path):
+    """
+    파일이 이미 존재하면 파일명 뒤에 _1, _2 등을 붙여 고유한 파일명을 반환합니다.
+    """
+    if not os.path.exists(base_path):
+        return base_path
+    
+    name, ext = os.path.splitext(base_path)
+    counter = 1
+    while os.path.exists(f"{name}_{counter}{ext}"):
+        counter += 1
+    return f"{name}_{counter}{ext}"
+
 def train_model():
     print(f"🚀 학습을 시작합니다. 사용 장치: {DEVICE}")
     
-    # 1. 데이터 로더 및 라벨 매핑 생성
-    train_loader, val_loader, class_to_idx = create_dataloaders(DATA_DIR, batch_size=BATCH_SIZE, max_len=MAX_LEN, max_classes=MAX_CLASSES)
+    # 1. 데이터 로더 및 라벨 매핑 생성 (데이터 불균형 해결을 위해 class_weights 활용)
+    train_loader, val_loader, class_to_idx, class_weights = create_dataloaders(DATA_DIR, batch_size=BATCH_SIZE, max_len=MAX_LEN, max_classes=MAX_CLASSES)
     num_classes = len(class_to_idx)
     print(f"✅ 총 {num_classes}개의 단어 클래스를 로드했습니다.")
     
     # 모바일 팀 전달용 label_map.json 저장 (인덱스 -> 단어)
     idx_to_class = {v: k for k, v in class_to_idx.items()}
-    with open('label_map.json', 'w', encoding='utf-8') as f:
+    label_map_path = get_unique_filename('label_map.json')
+    model_save_path = get_unique_filename('best_sign_model.pt')
+    
+    with open(label_map_path, 'w', encoding='utf-8') as f:
         json.dump(idx_to_class, f, ensure_ascii=False, indent=4)
-    print("✅ label_map.json 파일이 생성되었습니다.")
+    print(f"✅ {label_map_path} 파일이 생성되었습니다.")
     
     # 2. 모델 초기화
-    # 모바일용 초경량 세팅 (d_model=128, num_layers=2)
-    model = KSLTransformer(input_dim=345, num_classes=num_classes, d_model=128, num_heads=4, num_layers=2).to(DEVICE)
+    # 141차원 및 성능 향상을 위한 상향 세팅 (3층, 8헤드)
+    model = KSLTransformer(input_dim=141, num_classes=num_classes, d_model=128, num_heads=8, num_layers=3).to(DEVICE)
     
     # 3. 손실 함수 및 최적화 기법 설정
-    criterion = nn.CrossEntropyLoss()
+    # 데이터가 부족한 클래스에 더 큰 가중치를 부여하여 고르게 학습
+    criterion = nn.CrossEntropyLoss(weight=class_weights.to(DEVICE))
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
     # Validation Accuracy가 정체되면 학습률을 절반(0.5)으로 깎아버리는 똑똑한 스케줄러로 변경
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
@@ -90,18 +108,33 @@ def train_model():
         val_acc = 100 * val_correct / val_total
         val_loss = val_loss / val_total
         
+        # F1-Score 계산 (클래스 불균형 대응 확인용)
+        # 모든 라벨과 예측값을 리스트로 모아 계산 (실제 학습 시에는 내부 루프에서 모으는 로직이 추가됨)
+        all_preds = []
+        all_labels = []
+        model.eval()
+        with torch.no_grad():
+            for inputs, labels in val_loader:
+                inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
+                outputs = model(inputs)
+                _, predicted = torch.max(outputs, 1)
+                all_preds.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+        
+        val_f1 = f1_score(all_labels, all_preds, average='macro')
+        
         # Learning Rate 스케줄러 업데이트 (Val Acc 기준)
         scheduler.step(val_acc)
         
         print(f"Epoch [{epoch+1}/{EPOCHS}] "
               f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | "
-              f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+              f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%, F1: {val_f1:.4f}")
         
         # 6. 최고 성능 모델 저장 (.pt) 및 Early Stopping 검사
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), 'best_sign_model.pt')
-            print(f"🔥 Best Model Saved! (Val Acc: {best_val_acc:.2f}%)")
+            torch.save(model.state_dict(), model_save_path)
+            print(f"🔥 Best Model Saved to {model_save_path}! (Val Acc: {best_val_acc:.2f}%)")
             patience_counter = 0 # 신기록 달성 시 카운터 초기화
         else:
             patience_counter += 1

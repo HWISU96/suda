@@ -7,7 +7,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.ssafy.mobile.feature.conversation.presentation.conversationRoute
-import com.ssafy.mobile.feature.sign.presentation.SignRecognitionScreen
+import com.ssafy.mobile.feature.sign.presentation.SignDebugRoute
 
 @Composable
 fun MobileNavHost(
@@ -21,12 +21,19 @@ fun MobileNavHost(
         modifier = modifier,
     ) {
         composable(Screen.Conversation.route) {
-            conversationRoute(modifier = Modifier.fillMaxSize())
+            conversationRoute(
+                onOpenSignDebug = {
+                    navController.navigate(Screen.Sign.route)
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
 
         composable(Screen.Sign.route) {
-            SignRecognitionScreen(
-                isSessionActive = true,
+            SignDebugRoute(
+                onBackToMain = {
+                    navController.popBackStack()
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }

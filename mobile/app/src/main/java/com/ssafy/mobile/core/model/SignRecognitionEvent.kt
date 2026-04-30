@@ -1,5 +1,7 @@
 package com.ssafy.mobile.core.model
 
+import com.ssafy.mobile.core.vision.SignRecognitionConfig
+
 sealed interface SignRecognitionEvent {
     data object Ready : SignRecognitionEvent
 
@@ -26,8 +28,27 @@ sealed interface SignRecognitionEvent {
 
     data object ModelLoading : SignRecognitionEvent
 
+    data class Metrics(
+        val snapshot: SignRecognitionMetrics,
+    ) : SignRecognitionEvent
+
     data class Error(
         val message: String,
         val cause: Throwable? = null,
     ) : SignRecognitionEvent
 }
+
+data class SignRecognitionMetrics(
+    val timestampMs: Long,
+    val currentGloss: String? = null,
+    val confidence: Float? = null,
+    val hasHands: Boolean = false,
+    val poseLandmarkCount: Int = 0,
+    val leftHandLandmarkCount: Int = 0,
+    val rightHandLandmarkCount: Int = 0,
+    val lipLandmarkCount: Int = 0,
+    val sequenceFrameCount: Int = 0,
+    val sequenceHandFrameCount: Int = 0,
+    val tfliteInferenceMs: Double? = null,
+    val config: SignRecognitionConfig = SignRecognitionConfig(),
+)

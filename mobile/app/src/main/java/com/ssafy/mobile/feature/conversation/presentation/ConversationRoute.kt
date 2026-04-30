@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.util.Log
 import android.view.WindowManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -56,6 +58,7 @@ data class ConversationUiState(
 @Composable
 fun conversationRoute(
     modifier: Modifier = Modifier,
+    onOpenSignDebug: (() -> Unit)? = null,
     viewModel: ConversationViewModel = hiltViewModel(),
 ) {
     val sessionState by viewModel.sessionState.collectAsStateWithLifecycle()
@@ -99,6 +102,7 @@ fun conversationRoute(
         onStartSession = viewModel::startSession,
         onStopSession = viewModel::stopSession,
         onLandmarkFrame = viewModel::onLandmarkFrame,
+        onOpenSignDebug = onOpenSignDebug,
         modifier = modifier,
     )
 }
@@ -109,13 +113,17 @@ private fun ConversationScreen(
     onStartSession: () -> Unit,
     onStopSession: () -> Unit,
     onLandmarkFrame: (LandmarkFrameResult) -> Unit,
+    onOpenSignDebug: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column {
-                SessionHeader(sessionState = uiState.sessionState)
+                SessionHeader(
+                    sessionState = uiState.sessionState,
+                    onOpenSignDebug = onOpenSignDebug,
+                )
                 AppOfflineBanner(isOnline = uiState.isOnline)
             }
         },
@@ -233,7 +241,10 @@ private fun GlossRecognitionArea(lastGlosses: List<String>) {
 }
 
 @Composable
-private fun SessionHeader(sessionState: SessionState) {
+private fun SessionHeader(
+    sessionState: SessionState,
+    onOpenSignDebug: (() -> Unit)?,
+) {
     Row(
         modifier =
             Modifier
@@ -248,7 +259,30 @@ private fun SessionHeader(sessionState: SessionState) {
             fontWeight = FontWeight.Bold,
         )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (onOpenSignDebug != null) {
+                Box(
+                    modifier =
+                        Modifier
+                            .sizeIn(minWidth = 72.dp, minHeight = 40.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = CircleShape,
+                            ).clickable(onClick = onOpenSignDebug)
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "디버그",
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
             Box(
                 modifier =
                     Modifier

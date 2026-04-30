@@ -6,6 +6,8 @@ import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.os.SystemClock
+import android.util.Size
 import android.view.Surface
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -21,6 +23,7 @@ import java.util.concurrent.Executor
 data class YuvAnalysisFrame(
     val timestampNanos: Long,
     val timestampMs: Long,
+    val receivedAtElapsedMs: Long,
     val width: Int,
     val height: Int,
     val rotationDegrees: Int,
@@ -43,6 +46,7 @@ internal fun bindCameraUseCases(
     lifecycleOwner: LifecycleOwner,
     previewView: PreviewView,
     analyzerExecutor: Executor,
+    settings: CameraAnalysisSettings = CameraAnalysisSettings(),
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
 ): ImageAnalysis {
     val targetRotation = previewView.display?.rotation ?: Surface.ROTATION_0
@@ -52,6 +56,7 @@ internal fun bindCameraUseCases(
         createImageAnalysisUseCase(
             analyzerExecutor = analyzerExecutor,
             targetRotation = targetRotation,
+            settings = settings,
             onFrameAvailable = onFrameAvailable,
         )
 
@@ -81,22 +86,32 @@ private fun createPreviewUseCase(
 private fun createImageAnalysisUseCase(
     analyzerExecutor: Executor,
     targetRotation: Int,
+    settings: CameraAnalysisSettings,
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
-): ImageAnalysis =
-    ImageAnalysis
-        .Builder()
-        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-        .setTargetRotation(targetRotation)
-        .build()
-        .also { analysis ->
-            analysis.setAnalyzer(
-                analyzerExecutor,
-                SignFrameAnalyzer(
-                    onFrameAvailable = onFrameAvailable,
+): ImageAnalysis {
+    val analysis =
+        ImageAnalysis
+            .Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+            .setTargetRotation(targetRotation)
+            .setTargetResolution(
+                Size(
+                    settings.targetResolution.width,
+                    settings.targetResolution.height,
                 ),
-            )
-        }
+            ).build()
+
+    analysis.setAnalyzer(
+        analyzerExecutor,
+        SignFrameAnalyzer(
+            targetFps = settings.targetFps,
+            analysisFrameInterval = settings.analysisFrameInterval,
+            onFrameAvailable = onFrameAvailable,
+        ),
+    )
+    return analysis
+}
 
 private fun selectCamera(cameraProvider: ProcessCameraProvider): CameraAnalysisConfig =
     when {
@@ -116,10 +131,26 @@ private data class CameraAnalysisConfig(
 )
 
 private class SignFrameAnalyzer(
+    private val targetFps: Int,
+    private val analysisFrameInterval: Int,
     private val onFrameAvailable: (YuvAnalysisFrame) -> Unit,
 ) : ImageAnalysis.Analyzer {
+    private var frameIndex = 0L
+    private var lastAnalyzedAtMs = 0L
+
     override fun analyze(image: ImageProxy) {
         try {
+            frameIndex += 1L
+            val nowMs = SystemClock.elapsedRealtime()
+            val targetIntervalMs = MILLIS_PER_SECOND / targetFps
+            if (
+                frameIndex % analysisFrameInterval != 0L ||
+                nowMs - lastAnalyzedAtMs < targetIntervalMs
+            ) {
+                return
+            }
+
+            lastAnalyzedAtMs = nowMs
             onFrameAvailable(image.toYuvAnalysisFrame())
         } finally {
             image.close()
@@ -131,6 +162,7 @@ private fun ImageProxy.toYuvAnalysisFrame(): YuvAnalysisFrame =
     YuvAnalysisFrame(
         timestampNanos = imageInfo.timestamp,
         timestampMs = imageInfo.timestamp / NANOS_PER_MILLIS,
+        receivedAtElapsedMs = SystemClock.elapsedRealtime(),
         width = width,
         height = height,
         rotationDegrees = imageInfo.rotationDegrees,
@@ -236,6 +268,7 @@ private fun Bitmap.rotate(rotationDegrees: Int): Bitmap {
 }
 
 private const val NANOS_PER_MILLIS = 1_000_000L
+private const val MILLIS_PER_SECOND = 1_000L
 private const val JPEG_QUALITY = 90
 private const val CHROMA_DIVISOR = 2
 private const val Y_PLANE_INDEX = 0

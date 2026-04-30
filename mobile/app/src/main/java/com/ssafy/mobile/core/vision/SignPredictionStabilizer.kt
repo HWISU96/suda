@@ -117,7 +117,7 @@ class SignPredictionStabilizer(
         val confidence: Float,
     )
 
-    private companion object {
+    companion object {
         const val DEFAULT_WINDOW_SIZE = 5
         const val DEFAULT_REQUIRED_VOTES = 3
         const val DEFAULT_EMIT_COOLDOWN_MS = 1_000L

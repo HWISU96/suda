@@ -3,6 +3,7 @@ package com.ssafy.mobile.core.audio
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -24,7 +25,8 @@ class AndroidAudioRecorder
          * 녹음 시작
          * @param fileName 저장할 파일 이름 (확장자 제외)
          */
-        fun start(fileName: String = "stt_audio") {
+        @Suppress("TooGenericExceptionCaught")
+        fun start(fileName: String = "stt_audio"): Boolean {
             if (recorder != null) stop()
 
             outputFile =
@@ -32,8 +34,10 @@ class AndroidAudioRecorder
                     if (exists()) delete()
                 }
 
-            recorder =
-                createRecorder().apply {
+            recorder = createRecorder()
+
+            return try {
+                recorder?.apply {
                     setAudioSource(MediaRecorder.AudioSource.MIC)
                     setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -44,6 +48,15 @@ class AndroidAudioRecorder
                     prepare()
                     start()
                 }
+                true
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to start audio recording", e)
+                recorder?.release()
+                recorder = null
+                outputFile?.delete()
+                outputFile = null
+                false
+            }
         }
 
         private fun createRecorder(): MediaRecorder =
@@ -60,26 +73,36 @@ class AndroidAudioRecorder
         @Suppress("TooGenericExceptionCaught")
         fun stop(): File? {
             var isSuccess = true
-            recorder?.let { rec ->
-                try {
-                    rec.stop()
-                    rec.release()
-                } catch (e: IllegalStateException) {
-                    e.printStackTrace()
-                    isSuccess = false
-                } catch (e: RuntimeException) {
-                    // 녹음이 너무 짧아 stop failed 발생 시 처리
-                    e.printStackTrace()
-                    isSuccess = false
-                }
+            val activeRecorder = recorder ?: return null
+
+            try {
+                activeRecorder.stop()
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Failed to stop audio recording", e)
+                isSuccess = false
+            } catch (e: RuntimeException) {
+                // 녹음이 너무 짧아 stop failed 발생 시 처리
+                Log.w(TAG, "Failed to stop audio recording", e)
+                isSuccess = false
+            } finally {
+                activeRecorder.release()
+                recorder = null
             }
-            recorder = null
 
             return handleOutputFile(isSuccess)
         }
 
+        fun getMaxAmplitude(): Int =
+            try {
+                recorder?.maxAmplitude ?: 0
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "Failed to read max amplitude", e)
+                0
+            }
+
         private fun handleOutputFile(isSuccess: Boolean): File? {
             val file = outputFile
+            outputFile = null
             val isValid = isSuccess && file != null && file.exists() && file.length() > 0
 
             return if (isValid) {
@@ -89,7 +112,6 @@ class AndroidAudioRecorder
                 if (file?.exists() == true) {
                     file.delete()
                 }
-                outputFile = null
                 null
             }
         }
@@ -107,6 +129,7 @@ class AndroidAudioRecorder
         }
 
         companion object {
+            private const val TAG = "AndroidAudioRecorder"
             private const val SAMPLING_RATE = 44100
             private const val BIT_RATE = 128000
         }

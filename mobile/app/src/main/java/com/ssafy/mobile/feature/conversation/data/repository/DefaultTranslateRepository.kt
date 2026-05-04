@@ -11,6 +11,7 @@ import javax.inject.Inject
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * TranslateRepository의 실제 구현체
@@ -52,18 +53,29 @@ class DefaultTranslateRepository
                 val response =
                     apiService.translateSpeechToText(
                         audioFile = body,
-                        audioMimeType = mimeType,
+                        locale = DEFAULT_LOCALE.toPlainTextRequestBody(),
+                        audioMimeType = mimeType.toPlainTextRequestBody(),
                     )
 
                 if (response.isSuccessful) {
                     response.body() ?: throw IllegalStateException(ERROR_EMPTY_BODY)
                 } else {
-                    throw IOException("$ERROR_API_PREFIX ${response.code()} ${response.message()}")
+                    val errorBody = response.errorBody()?.string().orEmpty()
+                    throw IOException(
+                        "$ERROR_API_PREFIX ${response.code()} ${response.message()} " +
+                            errorBody.take(ERROR_BODY_PREVIEW_LENGTH),
+                    )
                 }
             }
 
         companion object {
             private const val ERROR_EMPTY_BODY = "Empty response body"
             private const val ERROR_API_PREFIX = "API Error:"
+            private const val ERROR_BODY_PREVIEW_LENGTH = 300
+            private const val DEFAULT_LOCALE = "ko-KR"
         }
     }
+
+private const val TEXT_PLAIN = "text/plain"
+
+private fun String.toPlainTextRequestBody() = toRequestBody(TEXT_PLAIN.toMediaTypeOrNull())

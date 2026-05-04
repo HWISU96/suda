@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.ssafy.mobile.BuildConfig
 import com.ssafy.mobile.feature.conversation.presentation.conversationRoute
 import com.ssafy.mobile.feature.sign.presentation.SignDebugRoute
 
@@ -21,21 +22,28 @@ fun MobileNavHost(
         modifier = modifier,
     ) {
         composable(Screen.Conversation.route) {
+            val onOpenSignDebug: (() -> Unit)? =
+                if (BuildConfig.DEBUG) {
+                    { navController.navigate(Screen.Sign.route) }
+                } else {
+                    null
+                }
+
             conversationRoute(
-                onOpenSignDebug = {
-                    navController.navigate(Screen.Sign.route)
-                },
+                onOpenSignDebug = onOpenSignDebug,
                 modifier = Modifier.fillMaxSize(),
             )
         }
 
-        composable(Screen.Sign.route) {
-            SignDebugRoute(
-                onBackToMain = {
-                    navController.popBackStack()
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+        if (BuildConfig.DEBUG) {
+            composable(Screen.Sign.route) {
+                SignDebugRoute(
+                    onBackToMain = {
+                        navController.popBackStack()
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }

@@ -1,7 +1,10 @@
 package com.ssafy.mobile.core.permission
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,8 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 카메라 및 마이크 권한 요청을 통합 관리하는 핸들러.
- * Activity에서 초기화하여 사용합니다.
+ * 앱 실행에 필요한 카메라/마이크 권한을 한 곳에서 관리합니다.
  */
 class PermissionHandler(
     private val activity: ComponentActivity,
@@ -27,37 +29,48 @@ class PermissionHandler(
         MutableStateFlow<PermissionRequestState>(PermissionRequestState.Idle)
     val permissionState: StateFlow<PermissionRequestState> = _permissionState.asStateFlow()
 
-    /** 권한 요청 런처 등록 */
     private val requestPermissionLauncher: ActivityResultLauncher<Array<String>> =
         activity.registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { permissions ->
-            val allGranted = permissions.entries.all { it.value }
+            val allGranted = requiredPermissions.all { permissions[it] == true }
             if (allGranted) {
                 _permissionState.value = PermissionRequestState.Granted
-            } else {
-                // 권한 거부 시, '다시 묻지 않음' 상태인지 확인
-                val shouldShowRationale =
-                    requiredPermissions.any {
-                        activity.shouldShowRequestPermissionRationale(it)
-                    }
-                _permissionState.value =
-                    if (shouldShowRationale) {
-                        PermissionRequestState.Denied
-                    } else {
-                        PermissionRequestState.PermanentlyDenied
-                    }
+                return@registerForActivityResult
             }
+
+            val deniedPermissions =
+                requiredPermissions.filter { permission ->
+                    permissions[permission] != true
+                }
+            val hasPermanentlyDeniedPermission =
+                deniedPermissions.any { permission ->
+                    !activity.shouldShowRequestPermissionRationale(permission)
+                }
+            _permissionState.value =
+                if (hasPermanentlyDeniedPermission) {
+                    PermissionRequestState.PermanentlyDenied
+                } else {
+                    PermissionRequestState.Denied
+                }
         }
 
-    /** 현재 권한 상태 체크 및 요청 */
-    fun checkAndRequestPermissions() {
-        val allGranted =
-            requiredPermissions.all {
-                ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
-            }
+    fun refreshPermissionState() {
+        if (hasRequiredPermissions()) {
+            _permissionState.value = PermissionRequestState.Granted
+            return
+        }
 
-        if (allGranted) {
+        _permissionState.value =
+            when (_permissionState.value) {
+                PermissionRequestState.Denied -> PermissionRequestState.Denied
+                PermissionRequestState.PermanentlyDenied -> PermissionRequestState.PermanentlyDenied
+                else -> PermissionRequestState.ShouldRequest
+            }
+    }
+
+    fun requestRequiredPermissions() {
+        if (hasRequiredPermissions()) {
             _permissionState.value = PermissionRequestState.Granted
         } else {
             _permissionState.value = PermissionRequestState.ShouldRequest
@@ -65,13 +78,18 @@ class PermissionHandler(
         }
     }
 
-    /** 설정창으로 이동 (영구 거부 시 사용) */
     fun openAppSettings() {
         val intent =
-            android.content.Intent(
-                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                android.net.Uri.fromParts("package", activity.packageName, null),
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", activity.packageName, null),
             )
         activity.startActivity(intent)
     }
+
+    private fun hasRequiredPermissions(): Boolean =
+        requiredPermissions.all { permission ->
+            ContextCompat.checkSelfPermission(activity, permission) ==
+                PackageManager.PERMISSION_GRANTED
+        }
 }

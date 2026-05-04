@@ -4,12 +4,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -30,19 +42,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         permissionHandler = PermissionHandler(this)
-        // 앱 시작 시 권한 체크 및 요청
-        permissionHandler.checkAndRequestPermissions()
 
         enableEdgeToEdge()
         setContent {
             val lifecycleOwner = LocalLifecycleOwner.current
 
-            // 사용자가 설정 화면에서 돌아왔을 때를 대비하여 ON_RESUME 시점에 권한 재확인
+            LaunchedEffect(Unit) {
+                permissionHandler.requestRequiredPermissions()
+            }
+
             DisposableEffect(lifecycleOwner) {
                 val observer =
                     LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
-                            permissionHandler.checkAndRequestPermissions()
+                            permissionHandler.refreshPermissionState()
                         }
                     }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -55,32 +68,73 @@ class MainActivity : ComponentActivity() {
                 val permissionState by permissionHandler.permissionState
                     .collectAsStateWithLifecycle()
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    val navController = rememberNavController()
-                    MobileNavHost(navController = navController)
-
-                    // 권한이 거부되었거나 영구 거부된 경우 안내 화면 표시
-                    when (permissionState) {
-                        is PermissionRequestState.Denied -> {
-                            PermissionGuide(
-                                title = "필수 권한 안내",
-                                description = "원활한 서비스 이용을 위해 카메라와 마이크 권한이 필요합니다.",
-                                onOpenSettings = { permissionHandler.checkAndRequestPermissions() },
-                                modifier = Modifier.align(Alignment.Center),
-                            )
-                        }
-                        is PermissionRequestState.PermanentlyDenied -> {
-                            PermissionGuide(
-                                title = "권한 설정 필요",
-                                description = "카메라 및 마이크 권한이 영구적으로 거부되었습니다. 설정에서 직접 권한을 허용해주세요.",
-                                onOpenSettings = { permissionHandler.openAppSettings() },
-                                modifier = Modifier.align(Alignment.Center),
-                            )
-                        }
-                        else -> { /* Idle, ShouldRequest, Granted 상태에서는 아무것도 표시하지 않음 */ }
-                    }
-                }
+                PermissionGate(
+                    permissionState = permissionState,
+                    onRequestPermissions = permissionHandler::requestRequiredPermissions,
+                    onOpenSettings = permissionHandler::openAppSettings,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun PermissionGate(
+    permissionState: PermissionRequestState,
+    onRequestPermissions: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (permissionState) {
+            PermissionRequestState.Granted -> {
+                val navController = rememberNavController()
+                MobileNavHost(navController = navController)
+            }
+            PermissionRequestState.Denied -> {
+                PermissionGuide(
+                    title = "필수 권한이 필요해요",
+                    description =
+                        "SUDA는 카메라로 수어를 인식하고 마이크로 음성을 듣습니다. " +
+                            "앱을 사용하려면 카메라와 마이크 권한을 모두 허용해 주세요.",
+                    buttonText = "권한 다시 요청하기",
+                    onButtonClick = onRequestPermissions,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+            PermissionRequestState.PermanentlyDenied -> {
+                PermissionGuide(
+                    title = "설정에서 권한을 허용해 주세요",
+                    description =
+                        "카메라 또는 마이크 권한이 영구 거부되어 앱에서 다시 요청할 수 없습니다. " +
+                            "설정 화면에서 카메라와 마이크 권한을 허용해 주세요.",
+                    buttonText = "설정으로 이동하기",
+                    onButtonClick = onOpenSettings,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+            PermissionRequestState.Idle,
+            PermissionRequestState.ShouldRequest,
+            -> {
+                PermissionCheckingContent(modifier = Modifier.align(Alignment.Center))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionCheckingContent(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator()
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "카메라와 마이크 권한을 확인하고 있어요.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }

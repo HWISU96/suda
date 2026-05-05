@@ -11,6 +11,8 @@ sealed class Screen(
 
     data object ChildSelect : Screen("child_select_route")
 
+    data object ChildProfileCreate : Screen("child_profile_create_route")
+
     data object Home : Screen("home_route")
 
     data object Conversation : Screen("conversation_route")

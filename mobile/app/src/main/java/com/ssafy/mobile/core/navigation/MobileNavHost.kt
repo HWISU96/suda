@@ -157,6 +157,12 @@ fun MobileNavHost(
 
         composable(Screen.MyPage.route) {
             MyPageRoute(
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }

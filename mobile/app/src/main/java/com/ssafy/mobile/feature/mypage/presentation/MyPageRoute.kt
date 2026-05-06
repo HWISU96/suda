@@ -1,6 +1,7 @@
 package com.ssafy.mobile.feature.mypage.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,16 +10,48 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ssafy.mobile.core.ui.components.AppDialog
 
 @Composable
-fun MyPageRoute(modifier: Modifier = Modifier) {
+fun MyPageRoute(
+    onNavigateToLogin: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: MyPageViewModel = hiltViewModel(),
+) {
+    val logoutState by viewModel.logoutState.collectAsStateWithLifecycle()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(logoutState) {
+        when (logoutState) {
+            is MyPageLogoutState.Success -> {
+                onNavigateToLogin()
+            }
+            is MyPageLogoutState.Error -> {
+                snackbarHostState.showSnackbar((logoutState as MyPageLogoutState.Error).message)
+                viewModel.resetLogoutState()
+            }
+            else -> Unit
+        }
+    }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -40,27 +73,63 @@ fun MyPageRoute(modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            MyPageMenuItem(title = "아이 프로필", description = "프로필 선택과 전환")
-            MyPageMenuItem(title = "앱 설정", description = "권한, 알림, 학습 환경")
-            MyPageMenuItem(title = "로그아웃", description = "로컬 세션 초기화")
+            MyPageMenuItem(
+                title = "아이 프로필 (준비 중)",
+                description = "프로필 선택과 전환",
+                onClick = {},
+                enabled = false,
+            )
+            MyPageMenuItem(
+                title = "앱 설정 (준비 중)",
+                description = "권한, 알림, 학습 환경",
+                onClick = {},
+                enabled = false,
+            )
+            MyPageMenuItem(
+                title = "로그아웃",
+                description = "로컬 세션 초기화",
+                onClick = { showLogoutDialog = true },
+            )
         }
+
+        SnackbarHost(hostState = snackbarHostState)
+    }
+
+    if (showLogoutDialog) {
+        AppDialog(
+            title = "로그아웃할까요?",
+            message = "현재 기기의 로그인 정보와 선택된 아이 정보가 초기화됩니다.",
+            confirmText = "로그아웃",
+            dismissText = "취소",
+            onConfirm = {
+                showLogoutDialog = false
+                viewModel.logout()
+            },
+            onDismiss = { showLogoutDialog = false },
+        )
     }
 }
+
+private const val DISABLED_ALPHA = 0.5f
 
 @Composable
 private fun MyPageMenuItem(
     title: String,
     description: String,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
+    val alpha = if (enabled) 1f else DISABLED_ALPHA
+
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(8.dp),
-                ).padding(horizontal = 18.dp, vertical = 16.dp),
+                .clip(RoundedCornerShape(8.dp))
+                .background(color = MaterialTheme.colorScheme.surface.copy(alpha = alpha))
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -69,18 +138,21 @@ private fun MyPageMenuItem(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
             )
         }
-        Text(
-            text = ">",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-        )
+        if (enabled) {
+            Text(
+                text = ">",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }

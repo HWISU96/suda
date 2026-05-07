@@ -20,7 +20,17 @@ data class ChildProfileResponseDto(
         )
 }
 
+data class ChildProfileListResponseDto(
+    @SerializedName("children")
+    val children: List<ChildProfileResponseDto>,
+)
+
 data class ChildProfileCreateRequestDto(
     @SerializedName("name") val name: String,
     @SerializedName("birthDate") val birthDate: String,
+)
+
+data class ChildProfileUpdateRequestDto(
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("birthDate") val birthDate: String? = null,
 )

@@ -9,4 +9,14 @@ interface ChildProfileRepository {
         name: String,
         birthDate: String,
     )
+
+    suspend fun getChildProfile(childId: Long): ChildProfile
+
+    suspend fun updateChildProfile(
+        childId: Long,
+        name: String?,
+        birthDate: String?,
+    )
+
+    suspend fun deleteChildProfile(childId: Long)
 }

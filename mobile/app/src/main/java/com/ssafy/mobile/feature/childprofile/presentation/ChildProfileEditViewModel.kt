@@ -3,6 +3,7 @@ package com.ssafy.mobile.feature.childprofile.presentation
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ssafy.mobile.core.session.ActiveChildStorage
 import com.ssafy.mobile.feature.childprofile.domain.repository.ChildProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,6 +20,7 @@ class ChildProfileEditViewModel
     @Inject
     constructor(
         private val childProfileRepository: ChildProfileRepository,
+        private val activeChildStorage: ActiveChildStorage,
     ) : ViewModel() {
         companion object {
             private const val TAG = "ChildProfileEditViewModel"
@@ -38,14 +40,46 @@ class ChildProfileEditViewModel
             )
         val uiState: StateFlow<ChildProfileEditUiState> = _uiState.asStateFlow()
 
+        private val _isProfileLoaded = MutableStateFlow(false)
+        val isProfileLoaded: StateFlow<Boolean> = _isProfileLoaded.asStateFlow()
+
         var name = MutableStateFlow("")
             private set
 
         var birthDate = MutableStateFlow("")
             private set
 
+        private var editingChildId: Long? = null
+
+        @Suppress("TooGenericExceptionCaught")
+        fun loadProfile(childId: Long) {
+            editingChildId = childId
+            _isProfileLoaded.value = false
+            _uiState.value = ChildProfileEditUiState.Loading
+            viewModelScope.launch {
+                try {
+                    val profile =
+                        withContext(Dispatchers.IO) {
+                            childProfileRepository.getChildProfile(childId)
+                        }
+                    name.value = profile.name
+                    birthDate.value = profile.birthDate
+                    _isProfileLoaded.value = true
+                    _uiState.value = ChildProfileEditUiState.Idle
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load child profile", e)
+                    val message = e.message ?: "정보를 불러오지 못했습니다."
+                    _uiState.value = ChildProfileEditUiState.Error(message)
+                }
+            }
+        }
+
         fun saveProfile() {
-            if (_uiState.value is ChildProfileEditUiState.Saving) return
+            val isSaving = _uiState.value is ChildProfileEditUiState.Saving
+            val isNotLoaded = editingChildId != null && !_isProfileLoaded.value
+            if (isSaving || isNotLoaded) return
 
             val currentName = name.value.trim()
             val rawBirthDate = birthDate.value.trim()
@@ -70,6 +104,34 @@ class ChildProfileEditViewModel
         }
 
         @Suppress("TooGenericExceptionCaught")
+        fun deleteProfile() {
+            val childId = editingChildId
+            val isSaving = _uiState.value is ChildProfileEditUiState.Saving
+            if (childId == null || isSaving || !_isProfileLoaded.value) return
+
+            _uiState.value = ChildProfileEditUiState.Saving
+            viewModelScope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        childProfileRepository.deleteChildProfile(childId)
+
+                        // API 성공 후, 현재 선택된 아이라면 클리어
+                        if (activeChildStorage.getActiveChildId() == childId) {
+                            activeChildStorage.clearActiveChildId()
+                        }
+                    }
+                    _uiState.value = ChildProfileEditUiState.Deleted
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to delete child profile", e)
+                    val message = e.message ?: "프로필 삭제 중 오류가 발생했습니다."
+                    _uiState.value = ChildProfileEditUiState.Error(message)
+                }
+            }
+        }
+
+        @Suppress("TooGenericExceptionCaught")
         private fun performSave(
             currentName: String,
             normalizedBirthDate: String,
@@ -78,10 +140,19 @@ class ChildProfileEditViewModel
             viewModelScope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        childProfileRepository.createChildProfile(
-                            name = currentName,
-                            birthDate = normalizedBirthDate,
-                        )
+                        val childId = editingChildId
+                        if (childId == null) {
+                            childProfileRepository.createChildProfile(
+                                name = currentName,
+                                birthDate = normalizedBirthDate,
+                            )
+                        } else {
+                            childProfileRepository.updateChildProfile(
+                                childId = childId,
+                                name = currentName,
+                                birthDate = normalizedBirthDate,
+                            )
+                        }
                     }
                     _uiState.value = ChildProfileEditUiState.Success
                 } catch (e: CancellationException) {

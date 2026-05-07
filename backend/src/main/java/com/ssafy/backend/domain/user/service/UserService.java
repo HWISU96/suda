@@ -2,6 +2,7 @@ package com.ssafy.backend.domain.user.service;
 
 import com.ssafy.backend.domain.user.dto.UserAuthResponseDto;
 import com.ssafy.backend.domain.user.dto.UserResponseDto;
+import com.ssafy.backend.domain.user.dto.UserUpdateResponseDto;
 import com.ssafy.backend.domain.user.entity.User;
 import com.ssafy.backend.domain.user.exception.UserErrorCode;
 import com.ssafy.backend.domain.user.repository.UserRepository;
@@ -53,11 +54,13 @@ public class UserService {
     return userRepository.existsByEmailIgnoreCase(normalizedEmail);
   }
 
-  public Long register(String email, String password) {
+  public UserResponseDto register(String email, String password, String name) {
     String normalizedEmail = normalizeEmail(email);
+    String normalizedName = normalizeName(name);
     User saved =
-        userRepository.save(User.create(normalizedEmail, passwordEncoder.encode(password)));
-    return saved.getId();
+        userRepository.save(
+            User.create(normalizedEmail, passwordEncoder.encode(password), normalizedName));
+    return toResponse(saved);
   }
 
   @Transactional(readOnly = true)
@@ -66,7 +69,17 @@ public class UserService {
         userRepository
             .findById(userId)
             .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-    return new UserResponseDto(user.getId(), user.getEmail(), user.isActive(), user.getRole());
+    return toResponse(user);
+  }
+
+  public UserUpdateResponseDto updateUser(Long userId, String name) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+    user.updateName(normalizeName(name));
+    userRepository.flush();
+    return toUpdateResponse(user);
   }
 
   private String normalizeEmail(String email) {
@@ -74,5 +87,27 @@ public class UserService {
       return "";
     }
     return email.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private String normalizeName(String name) {
+    if (name == null) {
+      return "";
+    }
+    return name.trim();
+  }
+
+  private UserResponseDto toResponse(User user) {
+    return new UserResponseDto(
+        user.getId(), user.getEmail(), user.getName(), user.isActive(), user.getRole());
+  }
+
+  private UserUpdateResponseDto toUpdateResponse(User user) {
+    return new UserUpdateResponseDto(
+        user.getId(),
+        user.getEmail(),
+        user.getName(),
+        user.isActive(),
+        user.getRole(),
+        user.getUpdatedAt());
   }
 }

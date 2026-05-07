@@ -1,6 +1,8 @@
 package com.ssafy.backend.domain.user.docs;
 
 import com.ssafy.backend.domain.user.dto.UserResponseDto;
+import com.ssafy.backend.domain.user.dto.UserUpdateRequestDto;
+import com.ssafy.backend.domain.user.dto.UserUpdateResponseDto;
 import com.ssafy.backend.global.docs.ApiErrorCodes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -25,4 +27,16 @@ public interface UserApiDocs {
       description = "성공",
       content = @Content(schema = @Schema(implementation = UserResponseDto.class)))
   ResponseEntity<UserResponseDto> me(@Parameter(hidden = true) Authentication authentication);
+
+  @Operation(
+      summary = "내 정보 수정",
+      description = "인증된 사용자의 정보를 수정합니다.",
+      security = {@SecurityRequirement(name = "bearerAuth")})
+  @ApiErrorCodes({"VALIDATION_INVALID_INPUT", "COMMON_UNAUTHORIZED", "USER_NOT_FOUND"})
+  @ApiResponse(
+      responseCode = "200",
+      description = "성공",
+      content = @Content(schema = @Schema(implementation = UserUpdateResponseDto.class)))
+  ResponseEntity<UserUpdateResponseDto> updateMe(
+      @Parameter(hidden = true) Authentication authentication, UserUpdateRequestDto request);
 }

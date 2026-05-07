@@ -25,6 +25,9 @@ public class User extends BaseEntity {
   @Column(nullable = false, length = 255)
   private String password;
 
+  @Column(length = 50)
+  private String name;
+
   @Column(nullable = false)
   private boolean active;
 
@@ -34,15 +37,16 @@ public class User extends BaseEntity {
 
   protected User() {}
 
-  private User(String email, String password) {
+  private User(String email, String password, String name) {
     this.email = email;
     this.password = password;
+    this.name = name;
     this.active = true;
     this.role = Role.USER;
   }
 
-  public static User create(String email, String password) {
-    return new User(email, password);
+  public static User create(String email, String password, String name) {
+    return new User(email, password, name);
   }
 
   public Long getId() {
@@ -57,11 +61,19 @@ public class User extends BaseEntity {
     return password;
   }
 
+  public String getName() {
+    return name;
+  }
+
   public boolean isActive() {
     return active;
   }
 
   public Role getRole() {
     return role;
+  }
+
+  public void updateName(String name) {
+    this.name = name;
   }
 }

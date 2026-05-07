@@ -10,8 +10,8 @@ import com.ssafy.backend.domain.auth.service.AuthService;
 import com.ssafy.backend.domain.auth.service.RefreshTokenCookieManager;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.net.URI;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,8 +38,7 @@ public class AuthController implements AuthApiDocs {
   @Override
   public ResponseEntity<SignupResponseDto> signup(@Valid @RequestBody SignupRequestDto requestDto) {
     SignupResponseDto responseDto = authService.signup(requestDto);
-    return ResponseEntity.created(URI.create("/api/v1/users/" + responseDto.userId()))
-        .body(responseDto);
+    return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);
   }
 
   @PostMapping("/login")

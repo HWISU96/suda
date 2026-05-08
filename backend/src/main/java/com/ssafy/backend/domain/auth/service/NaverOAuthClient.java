@@ -12,7 +12,6 @@ import org.springframework.web.client.RestClientResponseException;
 public class NaverOAuthClient {
 
   private static final String NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me";
-  private static final String NAVER_TOKEN_URL = "https://nid.naver.com/oauth2/token";
   private static final String SUCCESS_RESULT_CODE = "00";
 
   private final RestClient restClient;

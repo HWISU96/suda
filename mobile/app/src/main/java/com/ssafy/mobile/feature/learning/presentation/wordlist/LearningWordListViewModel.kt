@@ -3,6 +3,7 @@ package com.ssafy.mobile.feature.learning.presentation.wordlist
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ssafy.mobile.core.audio.AudioPlayer
 import com.ssafy.mobile.feature.learning.domain.repository.LearningWordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -20,6 +22,7 @@ class LearningWordListViewModel
     constructor(
         savedStateHandle: SavedStateHandle,
         private val wordRepository: LearningWordRepository,
+        private val audioPlayer: AudioPlayer,
     ) : ViewModel() {
         val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
         val categoryName: String? = savedStateHandle["categoryName"]
@@ -29,6 +32,7 @@ class LearningWordListViewModel
         val uiState: StateFlow<LearningWordListUiState> = _uiState.asStateFlow()
 
         private var fetchJob: Job? = null
+        private var currentPlaybackRequestId: Long = 0
 
         init {
             loadWords()
@@ -60,5 +64,95 @@ class LearningWordListViewModel
                                 )
                         }
                 }
+        }
+
+        fun playCurrentWordAudio() {
+            val state = _uiState.value as? LearningWordListUiState.Success
+            val word = state?.currentWord
+            val audioUrl = word?.audioUrl
+
+            if (audioUrl.isNullOrBlank()) {
+                updateAudioState(AudioPlaybackState.Error)
+                return
+            }
+
+            val requestId = ++currentPlaybackRequestId
+            updateAudioState(AudioPlaybackState.Loading)
+
+            audioPlayer.playUrl(
+                url = audioUrl,
+                onPrepared = {
+                    if (requestId == currentPlaybackRequestId) {
+                        updateAudioState(AudioPlaybackState.Playing)
+                    }
+                },
+                onComplete = {
+                    if (requestId == currentPlaybackRequestId) {
+                        updateAudioState(AudioPlaybackState.Idle)
+                    }
+                },
+                onError = { _ ->
+                    if (requestId == currentPlaybackRequestId) {
+                        updateAudioState(AudioPlaybackState.Error)
+                    }
+                },
+            )
+        }
+
+        fun nextWord() {
+            updateSuccessState { state ->
+                if (state.hasNext) {
+                    currentPlaybackRequestId++
+                    audioPlayer.stop()
+                    state.copy(
+                        currentIndex = state.currentIndex + 1,
+                        audioState = AudioPlaybackState.Idle,
+                    )
+                } else {
+                    state
+                }
+            }
+        }
+
+        fun previousWord() {
+            updateSuccessState { state ->
+                if (state.hasPrevious) {
+                    currentPlaybackRequestId++
+                    audioPlayer.stop()
+                    state.copy(
+                        currentIndex = state.currentIndex - 1,
+                        audioState = AudioPlaybackState.Idle,
+                    )
+                } else {
+                    state
+                }
+            }
+        }
+
+        fun stopAudio() {
+            currentPlaybackRequestId++
+            audioPlayer.stop()
+            updateAudioState(AudioPlaybackState.Idle)
+        }
+
+        private fun updateAudioState(audioState: AudioPlaybackState) {
+            updateSuccessState { it.copy(audioState = audioState) }
+        }
+
+        private fun updateSuccessState(
+            update: (LearningWordListUiState.Success) -> LearningWordListUiState.Success,
+        ) {
+            _uiState.update { currentState ->
+                if (currentState is LearningWordListUiState.Success) {
+                    update(currentState)
+                } else {
+                    currentState
+                }
+            }
+        }
+
+        override fun onCleared() {
+            super.onCleared()
+            audioPlayer.release()
         }
     }

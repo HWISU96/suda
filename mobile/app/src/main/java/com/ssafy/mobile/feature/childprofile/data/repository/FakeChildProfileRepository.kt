@@ -68,6 +68,41 @@ class FakeChildProfileRepository
             createdProfiles.add(newProfile)
         }
 
+        @Suppress("MagicNumber")
+        override suspend fun getChildProfile(childId: Long): ChildProfile {
+            delay(LOADING_DELAY_MS)
+            val baseProfiles =
+                listOf(
+                    ChildProfile(1L, "민준", "2020-05-01", 6, true),
+                    ChildProfile(2L, "서연", "2022-03-15", 4, true),
+                )
+            val allProfiles = baseProfiles + createdProfiles
+            return allProfiles.find { it.childId == childId }
+                ?: error("존재하지 않는 프로필입니다.")
+        }
+
+        override suspend fun updateChildProfile(
+            childId: Long,
+            name: String?,
+            birthDate: String?,
+        ) {
+            delay(LOADING_DELAY_MS)
+            val index = createdProfiles.indexOfFirst { it.childId == childId }
+            if (index != -1) {
+                val existing = createdProfiles[index]
+                createdProfiles[index] =
+                    existing.copy(
+                        name = name ?: existing.name,
+                        birthDate = birthDate ?: existing.birthDate,
+                    )
+            }
+        }
+
+        override suspend fun deleteChildProfile(childId: Long) {
+            delay(LOADING_DELAY_MS)
+            createdProfiles.removeIf { it.childId == childId }
+        }
+
         companion object {
             private const val LOADING_DELAY_MS = 1000L
             private const val INITIAL_FAKE_ID = 1000L

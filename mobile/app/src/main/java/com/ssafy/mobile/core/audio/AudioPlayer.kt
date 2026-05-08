@@ -27,6 +27,20 @@ interface AudioPlayer {
     )
 
     /**
+     * URL 주소의 오디오 파일을 재생합니다.
+     * @param url 재생할 오디오 파일의 URL
+     * @param onPrepared 재생 준비가 완료되었을 때 실행할 콜백 (Loading -> Playing 전환용)
+     * @param onComplete 재생이 완료되었을 때 실행할 콜백
+     * @param onError 에러 발생 시 실행할 콜백
+     */
+    fun playUrl(
+        url: String,
+        onPrepared: () -> Unit = {},
+        onComplete: () -> Unit = {},
+        onError: (String) -> Unit = {},
+    )
+
+    /**
      * 재생 중인 오디오를 중지합니다.
      */
     fun stop()

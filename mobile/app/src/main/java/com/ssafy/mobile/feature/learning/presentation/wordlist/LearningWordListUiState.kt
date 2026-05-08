@@ -7,11 +7,24 @@ sealed interface LearningWordListUiState {
 
     data class Success(
         val words: List<LearningWord>,
-    ) : LearningWordListUiState
+        val currentIndex: Int = 0,
+        val audioState: AudioPlaybackState = AudioPlaybackState.Idle,
+    ) : LearningWordListUiState {
+        val currentWord: LearningWord? = words.getOrNull(currentIndex)
+        val hasNext: Boolean = currentIndex < words.size - 1
+        val hasPrevious: Boolean = currentIndex > 0
+    }
 
     data object Empty : LearningWordListUiState
 
     data class Error(
         val message: String,
     ) : LearningWordListUiState
+}
+
+enum class AudioPlaybackState {
+    Idle,
+    Loading,
+    Playing,
+    Error,
 }

@@ -9,10 +9,14 @@ import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSession
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSessionStatus
 
 data class LearningQuizSessionRequestDto(
+    @SerializedName("childProfileId")
+    val childProfileId: Long,
     @SerializedName("categoryId")
     val categoryId: Long,
     @SerializedName("difficulty")
     val difficulty: String,
+    @SerializedName("totalQuestionCount")
+    val totalQuestionCount: Int,
 )
 
 data class LearningQuizSessionResponseDto(

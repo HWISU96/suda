@@ -1,11 +1,10 @@
 package com.ssafy.mobile.feature.learning.presentation.category
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,11 +17,16 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +40,7 @@ import com.ssafy.mobile.core.ui.components.AppErrorText
 import com.ssafy.mobile.core.ui.components.AppLoadingIndicator
 import com.ssafy.mobile.core.ui.components.AppNetworkImage
 import com.ssafy.mobile.core.ui.components.AppPrimaryButton
+import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_LEARNING_DIFFICULTY
 import com.ssafy.mobile.feature.learning.domain.model.LearningCategory
 
 private const val GRID_COLUMNS = 2
@@ -51,15 +56,20 @@ private const val ASPECT_RATIO_SQUARE = 1f
 
 @Composable
 fun LearningCategoryRoute(
-    onNavigateToWordList: (Long, String) -> Unit,
+    onNavigateToWordList: (Long, String, String) -> Unit,
+    onNavigateToQuiz: (Long, String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LearningCategoryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var selectedDifficulty by remember { mutableStateOf(DEFAULT_LEARNING_DIFFICULTY) }
 
     LearningCategoryScreen(
         uiState = uiState,
-        onCategoryClick = onNavigateToWordList,
+        selectedDifficulty = selectedDifficulty,
+        onDifficultyChange = { selectedDifficulty = it },
+        onCategoryClick = { id, name -> onNavigateToWordList(id, name, selectedDifficulty) },
+        onQuizClick = { id -> onNavigateToQuiz(id, selectedDifficulty) },
         onRetryClick = viewModel::loadCategories,
         modifier = modifier,
     )
@@ -68,7 +78,10 @@ fun LearningCategoryRoute(
 @Composable
 internal fun LearningCategoryScreen(
     uiState: LearningCategoryUiState,
+    selectedDifficulty: String,
+    onDifficultyChange: (String) -> Unit,
     onCategoryClick: (Long, String) -> Unit,
+    onQuizClick: (Long) -> Unit,
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -81,6 +94,13 @@ internal fun LearningCategoryScreen(
         ) {
             HeaderSection()
 
+            DifficultySelectionSection(
+                selectedDifficulty = selectedDifficulty,
+                onDifficultyChange = onDifficultyChange,
+                modifier = Modifier.padding(horizontal = HEADER_HORIZONTAL_PADDING),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
             Box(
                 modifier = Modifier.weight(1f),
             ) {
@@ -98,6 +118,7 @@ internal fun LearningCategoryScreen(
                         CategoryGrid(
                             categories = uiState.categories,
                             onCategoryClick = onCategoryClick,
+                            onQuizClick = onQuizClick,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -168,6 +189,7 @@ private fun HeaderSection() {
 private fun CategoryGrid(
     categories: List<LearningCategory>,
     onCategoryClick: (Long, String) -> Unit,
+    onQuizClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
@@ -184,7 +206,8 @@ private fun CategoryGrid(
         items(categories, key = { it.categoryId }) { category ->
             CategoryCard(
                 category = category,
-                onClick = { onCategoryClick(category.categoryId, category.name) },
+                onWordListClick = { onCategoryClick(category.categoryId, category.name) },
+                onQuizClick = { onQuizClick(category.categoryId) },
             )
         }
     }
@@ -193,14 +216,14 @@ private fun CategoryGrid(
 @Composable
 private fun CategoryCard(
     category: LearningCategory,
-    onClick: () -> Unit,
+    onWordListClick: () -> Unit,
+    onQuizClick: () -> Unit,
 ) {
     Card(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(CARD_CORNER_RADIUS))
-                .clickable(onClick = onClick),
+                .clip(RoundedCornerShape(CARD_CORNER_RADIUS)),
         shape = RoundedCornerShape(CARD_CORNER_RADIUS),
         colors =
             CardDefaults.cardColors(
@@ -241,6 +264,64 @@ private fun CategoryCard(
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AppPrimaryButton(
+                    text = "단어장",
+                    onClick = onWordListClick,
+                    modifier = Modifier.weight(1f),
+                )
+                AppPrimaryButton(
+                    text = "퀴즈",
+                    onClick = onQuizClick,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DifficultySelectionSection(
+    selectedDifficulty: String,
+    onDifficultyChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val difficulties =
+        listOf(
+            "EASY" to "쉬움",
+            "NORMAL" to "보통",
+            "HARD" to "어려움",
+        )
+
+    Column(modifier = modifier) {
+        Text(
+            text = "난이도 선택",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            difficulties.forEach { (value, label) ->
+                FilterChip(
+                    selected = selectedDifficulty == value,
+                    onClick = { onDifficultyChange(value) },
+                    label = { Text(label) },
+                    colors =
+                        FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
                 )
             }
         }

@@ -46,7 +46,7 @@ import com.ssafy.mobile.feature.learning.domain.model.LearningWord
 @Composable
 fun LearningWordListRoute(
     onNavigateBack: () -> Unit,
-    onStartQuiz: (Long) -> Unit,
+    onStartQuiz: (Long, String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LearningWordListViewModel = hiltViewModel(),
 ) {
@@ -69,7 +69,7 @@ fun LearningWordListRoute(
                 onStopAudio = viewModel::stopAudio,
                 onNextClick = viewModel::nextWord,
                 onPreviousClick = viewModel::previousWord,
-                onStartQuiz = { onStartQuiz(viewModel.categoryId) },
+                onStartQuiz = { onStartQuiz(viewModel.categoryId, viewModel.difficulty) },
                 onRetryClick = viewModel::loadWords,
             ),
         modifier = modifier,

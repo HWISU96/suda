@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.mobile.core.audio.AudioPlayer
+import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_LEARNING_DIFFICULTY
 import com.ssafy.mobile.feature.learning.domain.repository.LearningWordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -26,6 +27,7 @@ class LearningWordListViewModel
     ) : ViewModel() {
         val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
         val categoryName: String? = savedStateHandle["categoryName"]
+        val difficulty: String = savedStateHandle["difficulty"] ?: DEFAULT_LEARNING_DIFFICULTY
 
         private val _uiState =
             MutableStateFlow<LearningWordListUiState>(LearningWordListUiState.Loading)
@@ -46,7 +48,10 @@ class LearningWordListViewModel
                     _uiState.value = LearningWordListUiState.Loading
                     val result =
                         withContext(Dispatchers.IO) {
-                            wordRepository.getWords(categoryId)
+                            wordRepository.getWords(
+                                categoryId = categoryId,
+                                difficulty = difficulty,
+                            )
                         }
 
                     result

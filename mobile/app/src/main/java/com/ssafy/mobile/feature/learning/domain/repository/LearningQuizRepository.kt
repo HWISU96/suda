@@ -8,8 +8,10 @@ import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSessionStatus
 
 interface LearningQuizRepository {
     suspend fun createSession(
+        childProfileId: Long,
         categoryId: Long,
         difficulty: String,
+        totalQuestionCount: Int,
     ): Result<LearningQuizSession>
 
     suspend fun getCurrentQuestion(sessionId: Long): Result<LearningQuizQuestion>

@@ -3,7 +3,10 @@ package com.ssafy.mobile.feature.quiz.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ssafy.mobile.core.session.ActiveChildStorage
 import com.ssafy.mobile.feature.learning.data.repository.LearningQuizAnswerSubmissionQueueSyncer
+import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_LEARNING_DIFFICULTY
+import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_QUIZ_QUESTION_COUNT
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizAnswerResult
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizAnswerSubmissionSyncEvent
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizQuestion
@@ -30,12 +33,13 @@ class QuizQuestionViewModel
         private val quizRepository: LearningQuizRepository,
         private val wordRepository: LearningWordRepository,
         private val queueSyncer: LearningQuizAnswerSubmissionQueueSyncer,
+        private val activeChildStorage: ActiveChildStorage,
     ) : ViewModel() {
         val categoryId: Long =
             checkNotNull(savedStateHandle["categoryId"]) {
                 "Quiz route requires categoryId."
             }
-        val difficulty: String = savedStateHandle["difficulty"] ?: DEFAULT_DIFFICULTY
+        val difficulty: String = savedStateHandle["difficulty"] ?: DEFAULT_LEARNING_DIFFICULTY
         private var wordById: Map<Long, String> = emptyMap()
         private var isCompletionPending = false
 
@@ -174,6 +178,18 @@ class QuizQuestionViewModel
             viewModelScope.launch {
                 _quizState.value = QuizSessionState(isLoading = true)
 
+                val activeChildId =
+                    withContext(Dispatchers.IO) {
+                        activeChildStorage.getActiveChildId()
+                    }
+                if (activeChildId == null) {
+                    _quizState.value =
+                        QuizSessionState(
+                            errorMessage = "퀴즈를 시작하려면 아이를 먼저 선택해 주세요.",
+                        )
+                    return@launch
+                }
+
                 val wordResult =
                     withContext(Dispatchers.IO) {
                         wordRepository.getWords(
@@ -188,8 +204,10 @@ class QuizQuestionViewModel
                         val sessionResult =
                             withContext(Dispatchers.IO) {
                                 quizRepository.createSession(
+                                    childProfileId = activeChildId,
                                     categoryId = categoryId,
                                     difficulty = difficulty,
+                                    totalQuestionCount = DEFAULT_QUIZ_QUESTION_COUNT,
                                 )
                             }
 
@@ -257,7 +275,9 @@ class QuizQuestionViewModel
                         sessionId = question.sessionId,
                     )
                 _answerSubmitState.value =
-                    QuizAnswerSubmitState.Error("퀴즈 문제 단어 정보를 확인할 수 없습니다.")
+                    QuizAnswerSubmitState.Error(
+                        "퀴즈 문제 정보를 확인할 수 없습니다. 다시 시도해 주세요.",
+                    )
             } else {
                 val currentQuestion =
                     QuizQuestion(
@@ -389,10 +409,6 @@ class QuizQuestionViewModel
                     }
                 }
             }
-        }
-
-        private companion object {
-            const val DEFAULT_DIFFICULTY = "EASY"
         }
     }
 

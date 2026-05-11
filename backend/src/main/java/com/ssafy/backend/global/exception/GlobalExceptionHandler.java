@@ -22,6 +22,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
@@ -164,6 +165,22 @@ public class GlobalExceptionHandler {
         errorCode.getMessage());
     return ResponseEntity.status(errorCode.getHttpStatus())
         .body(ProblemDetails.of(errorCode, request.getRequestURI()));
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ProblemDetail> handleMethodArgumentTypeMismatch(
+      MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+    ValidationErrorCode errorCode = ValidationErrorCode.INVALID_INPUT;
+    String message = "요청 파라미터 형식이 올바르지 않습니다.";
+    log.warn(
+        "Request parameter type mismatch: method={}, uri={}, parameter={}, code={}, message={}",
+        request.getMethod(),
+        request.getRequestURI(),
+        exception.getName(),
+        errorCode.getCode(),
+        exception.getMessage());
+    return ResponseEntity.status(errorCode.getHttpStatus())
+        .body(ProblemDetails.of(errorCode, request.getRequestURI(), message));
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)

@@ -205,7 +205,6 @@ mobile-check:
         files:
           - mobile/gradle/libs.versions.toml
           - mobile/gradle/wrapper/gradle-wrapper.properties
-          - mobile/gradle.properties
       fallback_keys:
         - mobile-gradle-default
       paths:

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -35,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.ssafy.mobile.core.auth.AuthState
 import com.ssafy.mobile.core.navigation.MobileNavHost
 import com.ssafy.mobile.core.navigation.Screen
 import com.ssafy.mobile.core.permission.PermissionGuide
@@ -135,7 +137,11 @@ private fun PermissionGate(
 }
 
 @Composable
-private fun MobileAppShell(modifier: Modifier = Modifier) {
+private fun MobileAppShell(
+    modifier: Modifier = Modifier,
+    viewModel: MainViewModel = hiltViewModel(),
+) {
+    val authState by viewModel.authState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -147,6 +153,7 @@ private fun MobileAppShell(modifier: Modifier = Modifier) {
                 AppBottomNavigationBar(
                     navController = navController,
                     currentRoute = currentRoute,
+                    authState = authState,
                 )
             }
         },
@@ -165,6 +172,7 @@ private fun MobileAppShell(modifier: Modifier = Modifier) {
 private fun AppBottomNavigationBar(
     navController: NavHostController,
     currentRoute: String?,
+    authState: AuthState,
 ) {
     NavigationBar {
         bottomNavigationItems.forEach { item ->
@@ -173,11 +181,20 @@ private fun AppBottomNavigationBar(
                 selected = selected,
                 onClick = {
                     if (!selected) {
-                        navController.navigate(item.screen.route) {
-                            launchSingleTop = true
-                            restoreState = true
-                            popUpTo(Screen.Home.route) {
-                                saveState = true
+                        val isAuthRequired = item.screen != Screen.Conversation
+                        val isAuthenticated =
+                            authState is AuthState.AuthenticatedWithChild ||
+                                authState is AuthState.AuthenticatedWithoutChild
+
+                        if (isAuthRequired && !isAuthenticated) {
+                            navController.navigate(Screen.Login.route)
+                        } else {
+                            navController.navigate(item.screen.route) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(Screen.Home.route) {
+                                    saveState = true
+                                }
                             }
                         }
                     }

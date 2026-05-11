@@ -31,7 +31,7 @@ import com.ssafy.mobile.core.ui.components.AppDialog
 
 @Composable
 fun MyPageRoute(
-    onNavigateToLogin: () -> Unit,
+    onLogoutSuccess: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MyPageViewModel = hiltViewModel(),
 ) {
@@ -42,7 +42,7 @@ fun MyPageRoute(
     LaunchedEffect(logoutState) {
         when (logoutState) {
             is MyPageLogoutState.Success -> {
-                onNavigateToLogin()
+                onLogoutSuccess()
             }
             is MyPageLogoutState.Error -> {
                 snackbarHostState.showSnackbar((logoutState as MyPageLogoutState.Error).message)

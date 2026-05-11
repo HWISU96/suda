@@ -1,5 +1,6 @@
 package com.ssafy.mobile.core.network
 
+import com.ssafy.mobile.core.auth.AuthSessionManager
 import com.ssafy.mobile.core.auth.TokenStorage
 import java.net.HttpURLConnection
 import javax.inject.Inject
@@ -16,6 +17,7 @@ class TokenAuthenticator
     @Inject
     constructor(
         private val tokenStorage: TokenStorage,
+        private val authSessionManager: AuthSessionManager,
         private val refreshTokenClient: RefreshTokenClient,
     ) : Authenticator {
         companion object {
@@ -73,8 +75,7 @@ class TokenAuthenticator
 
                     // 2. Refresh Token 자체가 없으면 더 이상 갱신 불가 (로그아웃 처리 필요)
                     if (refreshToken.isNullOrEmpty()) {
-                        tokenStorage.clearTokens()
-                        // [S14P31A404-226] EventBus나 Callback 을 통해 세션 만료 이벤트를 UI(LoginActivity 이동)에 전달
+                        authSessionManager.clearSession()
                         return@runBlocking null
                     }
 
@@ -93,11 +94,11 @@ class TokenAuthenticator
                             throw e
                         } catch (e: IllegalArgumentException) {
                             android.util.Log.e("TokenAuthenticator", "Invalid token format", e)
-                            tokenStorage.clearTokens()
+                            authSessionManager.clearSession()
                             return@runBlocking null
                         } catch (e: java.security.GeneralSecurityException) {
                             android.util.Log.e("TokenAuthenticator", "Security storage error", e)
-                            tokenStorage.clearTokens()
+                            authSessionManager.clearSession()
                             return@runBlocking null
                         }
 
@@ -107,8 +108,7 @@ class TokenAuthenticator
                             .build()
                     } else {
                         // 실패: 토큰 파기 및 인증 만료 처리
-                        tokenStorage.clearTokens()
-                        // [S14P31A404-226] EventBus나 Callback 을 통해 세션 만료 이벤트를 UI에 전달
+                        authSessionManager.clearSession()
                         null
                     }
                 }

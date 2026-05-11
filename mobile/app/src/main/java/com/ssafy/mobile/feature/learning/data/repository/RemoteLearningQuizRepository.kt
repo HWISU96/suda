@@ -35,15 +35,19 @@ class RemoteLearningQuizRepository
         private val queueRepository: LearningQuizAnswerSubmissionQueueRepository,
     ) : LearningQuizRepository {
         override suspend fun createSession(
+            childProfileId: Long,
             categoryId: Long,
             difficulty: String,
+            totalQuestionCount: Int,
         ): Result<LearningQuizSession> =
             runCatchingNetwork("Failed to create quiz session") {
                 apiService
                     .createSession(
                         LearningQuizSessionRequestDto(
+                            childProfileId = childProfileId,
                             categoryId = categoryId,
                             difficulty = difficulty,
+                            totalQuestionCount = totalQuestionCount,
                         ),
                     ).toResult { response ->
                         response.toDomain()

@@ -1,5 +1,7 @@
 package com.ssafy.mobile.feature.learning.domain.model
 
+const val DEFAULT_QUIZ_QUESTION_COUNT = 5
+
 data class LearningQuizSession(
     val sessionId: Long,
     val categoryId: Long,

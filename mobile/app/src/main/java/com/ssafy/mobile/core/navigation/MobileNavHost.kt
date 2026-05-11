@@ -14,6 +14,7 @@ import com.ssafy.mobile.feature.childprofile.presentation.ChildProfileEditRoute
 import com.ssafy.mobile.feature.childprofile.presentation.ChildProfileSelectRoute
 import com.ssafy.mobile.feature.conversation.presentation.conversationRoute
 import com.ssafy.mobile.feature.home.presentation.HomeRoute
+import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_LEARNING_DIFFICULTY
 import com.ssafy.mobile.feature.learning.presentation.category.LearningCategoryRoute
 import com.ssafy.mobile.feature.learning.presentation.wordlist.LearningWordListRoute
 import com.ssafy.mobile.feature.login.presentation.LoginRoute
@@ -205,7 +206,7 @@ fun MobileNavHost(
                     navArgument("categoryId") { type = NavType.LongType },
                     navArgument("difficulty") {
                         type = NavType.StringType
-                        defaultValue = "EASY"
+                        defaultValue = DEFAULT_LEARNING_DIFFICULTY
                     },
                 ),
         ) {
@@ -229,7 +230,9 @@ fun MobileNavHost(
                 ),
         ) { backStackEntry ->
             val categoryId = backStackEntry.arguments?.getLong("categoryId") ?: 0L
-            val difficulty = backStackEntry.arguments?.getString("difficulty") ?: "EASY"
+            val difficulty =
+                backStackEntry.arguments?.getString("difficulty")
+                    ?: DEFAULT_LEARNING_DIFFICULTY
 
             QuizResultRoute(
                 onRestartQuiz = {
@@ -286,8 +289,13 @@ fun MobileNavHost(
 
         composable(Screen.LearningCategory.route) {
             LearningCategoryRoute(
-                onNavigateToWordList = { categoryId, categoryName ->
-                    navController.navigate(Screen.WordList.createRoute(categoryId, categoryName))
+                onNavigateToWordList = { categoryId, categoryName, difficulty ->
+                    navController.navigate(
+                        Screen.WordList.createRoute(categoryId, categoryName, difficulty),
+                    )
+                },
+                onNavigateToQuiz = { categoryId, difficulty ->
+                    navController.navigate(Screen.Quiz.createRoute(categoryId, difficulty))
                 },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -302,14 +310,18 @@ fun MobileNavHost(
                         type = NavType.StringType
                         nullable = true
                     },
+                    navArgument("difficulty") {
+                        type = NavType.StringType
+                        defaultValue = DEFAULT_LEARNING_DIFFICULTY
+                    },
                 ),
         ) {
             LearningWordListRoute(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onStartQuiz = { categoryId ->
-                    navController.navigate(Screen.Quiz.createRoute(categoryId))
+                onStartQuiz = { categoryId, difficulty ->
+                    navController.navigate(Screen.Quiz.createRoute(categoryId, difficulty))
                 },
                 modifier = Modifier.fillMaxSize(),
             )

@@ -1,5 +1,7 @@
 package com.ssafy.mobile.core.navigation
 
+import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_LEARNING_DIFFICULTY
+
 sealed class Screen(
     val route: String,
 ) {
@@ -22,7 +24,7 @@ sealed class Screen(
     data object Quiz : Screen("quiz_question_route/{categoryId}?difficulty={difficulty}") {
         fun createRoute(
             categoryId: Long,
-            difficulty: String = "EASY",
+            difficulty: String = DEFAULT_LEARNING_DIFFICULTY,
         ) = "quiz_question_route/$categoryId?difficulty=${android.net.Uri.encode(difficulty)}"
     }
 
@@ -44,11 +46,14 @@ sealed class Screen(
 
     data object LearningCategory : Screen("learning_category_route")
 
-    data object WordList : Screen("learning_words/{categoryId}?categoryName={categoryName}") {
+    data object WordList :
+        Screen("learning_words/{categoryId}?categoryName={categoryName}&difficulty={difficulty}") {
         fun createRoute(
             categoryId: Long,
             categoryName: String,
-        ) = "learning_words/$categoryId?categoryName=${android.net.Uri.encode(categoryName)}"
+            difficulty: String = DEFAULT_LEARNING_DIFFICULTY,
+        ) = "learning_words/$categoryId?categoryName=${android.net.Uri.encode(categoryName)}" +
+            "&difficulty=${android.net.Uri.encode(difficulty)}"
     }
 
     data object ReportHome : Screen("report_home_route")

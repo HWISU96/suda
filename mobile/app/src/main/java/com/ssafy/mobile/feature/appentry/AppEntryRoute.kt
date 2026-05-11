@@ -32,6 +32,7 @@ fun AppEntryRoute(
     onNavigateToLogin: () -> Unit,
     onNavigateToChildSelect: () -> Unit,
     onNavigateToHome: () -> Unit,
+    onNavigateToConversation: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AppEntryViewModel = hiltViewModel(),
 ) {
@@ -41,7 +42,7 @@ fun AppEntryRoute(
         when (authState) {
             is AuthState.Restoring -> Unit
             is AuthState.RestoreFailed -> Unit
-            is AuthState.Unauthenticated -> onNavigateToLogin()
+            is AuthState.Unauthenticated -> onNavigateToConversation()
             is AuthState.AuthenticatedWithoutChild -> onNavigateToChildSelect()
             is AuthState.AuthenticatedWithChild -> onNavigateToHome()
         }
@@ -60,6 +61,7 @@ fun AppEntryRoute(
                 RestoreFailedContent(
                     onRetry = viewModel::retryRestoreSession,
                     onNavigateToLogin = onNavigateToLogin,
+                    onNavigateToConversation = onNavigateToConversation,
                 )
             }
 
@@ -104,6 +106,7 @@ private fun RestoringContent(modifier: Modifier = Modifier) {
 private fun RestoreFailedContent(
     onRetry: () -> Unit,
     onNavigateToLogin: () -> Unit,
+    onNavigateToConversation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -139,6 +142,12 @@ private fun RestoreFailedContent(
         AppSecondaryButton(
             text = "로그인 화면으로 이동",
             onClick = onNavigateToLogin,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        AppSecondaryButton(
+            text = "로그인 없이 소통 시작하기",
+            onClick = onNavigateToConversation,
             modifier = Modifier.fillMaxWidth(),
         )
     }

@@ -16,6 +16,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 import retrofit2.Retrofit
 
@@ -43,8 +44,9 @@ abstract class ConversationModule {
     companion object {
         @Provides
         @Singleton
-        fun provideTranslateApiService(retrofit: Retrofit): TranslateApiService =
-            retrofit.create(TranslateApiService::class.java)
+        fun provideTranslateApiService(
+            @Named("NoAuth") retrofit: Retrofit,
+        ): TranslateApiService = retrofit.create(TranslateApiService::class.java)
 
         @Provides
         @Singleton

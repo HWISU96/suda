@@ -26,6 +26,9 @@ private const val SUDA_BG_COLOR = 0xFFF0F0F0
 private const val PENDING_ALPHA = 0.6f
 private const val MAX_BUBBLE_WIDTH = 280
 
+// 후속 작업: 번역 신고/피드백 백엔드 미구현 상태라 임시 숨김 처리 (백엔드 연동 시 true로 변경)
+private const val IS_TRANSLATION_FEEDBACK_ENABLED = false
+
 @Composable
 fun SubtitleBubble(
     message: ChatMessage,
@@ -60,7 +63,10 @@ fun SubtitleBubble(
                 )
             }
 
-            if (message.canReportTranslation() && onFeedbackClick != null) {
+            if (IS_TRANSLATION_FEEDBACK_ENABLED &&
+                message.canReportTranslation() &&
+                onFeedbackClick != null
+            ) {
                 TextButton(onClick = { onFeedbackClick(message) }) {
                     Text(
                         text = "신고",

@@ -5,6 +5,8 @@ import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ssafy.mobile.core.auth.AuthSessionManager
+import com.ssafy.mobile.core.auth.AuthState
 import com.ssafy.mobile.core.auth.TokenStorage
 import com.ssafy.mobile.core.session.ActiveChildStorage
 import com.ssafy.mobile.feature.learning.data.repository.LearningQuizAnswerSubmissionQueueSyncer
@@ -32,6 +34,7 @@ class LoginViewModel
         private val tokenStorage: TokenStorage,
         private val activeChildStorage: ActiveChildStorage,
         private val naverOAuthManager: NaverOAuthManager,
+        private val authSessionManager: AuthSessionManager,
         private val learningQuizAnswerSubmissionQueueSyncer:
             LearningQuizAnswerSubmissionQueueSyncer,
     ) : ViewModel() {
@@ -150,10 +153,21 @@ class LoginViewModel
                 return
             }
 
-            val hasActiveChild =
+            val activeChildId =
                 withContext(Dispatchers.IO) {
-                    activeChildStorage.getActiveChildId() != null
+                    activeChildStorage.getActiveChildId()
                 }
+
+            val hasActiveChild = activeChildId != null
+
+            // 인증 상태 업데이트
+            val authState =
+                if (activeChildId != null) {
+                    AuthState.AuthenticatedWithChild(activeChildId)
+                } else {
+                    AuthState.AuthenticatedWithoutChild
+                }
+            authSessionManager.updateAuthState(authState)
 
             learningQuizAnswerSubmissionQueueSyncer.requestSync()
             _uiState.value = LoginUiState.Success(hasActiveChild = hasActiveChild)

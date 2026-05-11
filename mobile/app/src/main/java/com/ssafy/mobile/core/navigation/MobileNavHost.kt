@@ -53,19 +53,40 @@ fun MobileNavHost(
                         popUpTo(Screen.AppEntry.route) { inclusive = true }
                     }
                 },
+                onNavigateToConversation = {
+                    navController.navigate(Screen.Conversation.route) {
+                        popUpTo(Screen.AppEntry.route) { inclusive = true }
+                    }
+                },
             )
         }
 
         composable(Screen.Login.route) {
             LoginRoute(
                 onNavigateToHome = {
+                    val popTarget =
+                        if (navController.previousBackStackEntry?.destination?.route ==
+                            Screen.Conversation.route
+                        ) {
+                            Screen.Conversation.route
+                        } else {
+                            Screen.Login.route
+                        }
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        popUpTo(popTarget) { inclusive = true }
                     }
                 },
                 onNavigateToChildSelect = {
+                    val popTarget =
+                        if (navController.previousBackStackEntry?.destination?.route ==
+                            Screen.Conversation.route
+                        ) {
+                            Screen.Conversation.route
+                        } else {
+                            Screen.Login.route
+                        }
                     navController.navigate(Screen.ChildSelect.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        popUpTo(popTarget) { inclusive = true }
                     }
                 },
                 onNavigateToSignup = {
@@ -208,8 +229,8 @@ fun MobileNavHost(
 
         composable(Screen.MyPage.route) {
             MyPageRoute(
-                onNavigateToLogin = {
-                    navController.navigate(Screen.Login.route) {
+                onLogoutSuccess = {
+                    navController.navigate(Screen.Conversation.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                         launchSingleTop = true
                     }

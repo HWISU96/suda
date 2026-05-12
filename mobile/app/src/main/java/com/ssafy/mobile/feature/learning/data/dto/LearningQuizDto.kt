@@ -79,15 +79,6 @@ data class LearningQuizCurrentQuestionResponseDto(
         )
 }
 
-data class LearningQuizAnswerRequestDto(
-    @SerializedName("questionId")
-    val questionId: Long,
-    @SerializedName("wordId")
-    val wordId: Long,
-    @SerializedName("recognizedText")
-    val recognizedText: String,
-)
-
 data class LearningQuizAnswerResponseDto(
     @SerializedName("sessionId")
     val sessionId: Long,

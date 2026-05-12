@@ -5,6 +5,7 @@ import com.ssafy.mobile.feature.learning.domain.model.LearningQuizQuestion
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizResult
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSession
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSessionStatus
+import java.io.File
 
 interface LearningQuizRepository {
     suspend fun createSession(
@@ -19,8 +20,8 @@ interface LearningQuizRepository {
     suspend fun submitAnswer(
         sessionId: Long,
         questionId: Long,
-        wordId: Long,
-        recognizedText: String,
+        audioFile: File,
+        audioMimeType: String,
     ): Result<LearningQuizAnswerResult>
 
     suspend fun completeSession(sessionId: Long): Result<LearningQuizSessionStatus>

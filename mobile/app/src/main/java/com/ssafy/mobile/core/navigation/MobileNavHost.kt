@@ -24,6 +24,7 @@ import com.ssafy.mobile.feature.quiz.presentation.quizQuestionRoute
 import com.ssafy.mobile.feature.report.presentation.ReportCategoryProgressRoute
 import com.ssafy.mobile.feature.report.presentation.ReportHomeRoute
 import com.ssafy.mobile.feature.report.presentation.ReportPlaceholderRoute
+import com.ssafy.mobile.feature.report.presentation.ReportQuizSessionDetailRoute
 import com.ssafy.mobile.feature.report.presentation.ReportQuizSessionsRoute
 import com.ssafy.mobile.feature.report.presentation.ReportWeakWordsRoute
 import com.ssafy.mobile.feature.sign.presentation.SignDebugRoute
@@ -381,6 +382,22 @@ fun MobileNavHost(
 
         composable(Screen.ReportQuizSessions.route) {
             ReportQuizSessionsRoute(
+                onNavigateBack = { navController.popBackStack() },
+                onSwitchChild = {
+                    navController.navigate(Screen.ChildSelect.route)
+                },
+                onNavigateToDetail = { sessionId ->
+                    navController.navigate(Screen.ReportQuizSessionDetail.createRoute(sessionId))
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(
+            route = Screen.ReportQuizSessionDetail.route,
+            arguments = listOf(navArgument("sessionId") { type = NavType.LongType }),
+        ) {
+            ReportQuizSessionDetailRoute(
                 onNavigateBack = { navController.popBackStack() },
                 onSwitchChild = {
                     navController.navigate(Screen.ChildSelect.route)

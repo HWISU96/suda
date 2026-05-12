@@ -1,5 +1,6 @@
 package com.ssafy.mobile.feature.report.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,9 +21,15 @@ import com.ssafy.mobile.feature.report.domain.model.ReportQuizSession
 import java.util.Locale
 
 @Composable
-fun ReportQuizSessionCard(session: ReportQuizSession) {
+fun ReportQuizSessionCard(
+    session: ReportQuizSession,
+    onClick: () -> Unit,
+) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = QUIZ_SESSION_CARD_ALPHA),
     ) {
@@ -41,8 +48,8 @@ fun ReportQuizSessionCard(session: ReportQuizSession) {
                     )
                     Text(
                         text =
-                            "${session.difficulty.toDifficultyLabel()} · " +
-                                session.status.toStatusLabel(),
+                            "${session.difficulty.toReportDifficultyLabel()} · " +
+                                session.status.toReportSessionStatusLabel(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -125,28 +132,9 @@ private fun ReportQuizSessionMetric(
 
 private fun ReportQuizSession.toDateLabel(): String =
     when {
-        !endedAt.isNullOrBlank() -> "완료 ${endedAt.toReportDateLabel()}"
-        !startedAt.isNullOrBlank() -> "시작 ${startedAt.toReportDateLabel()}"
+        !endedAt.isNullOrBlank() -> "완료 ${endedAt.toReportQuizSessionDateLabel()}"
+        !startedAt.isNullOrBlank() -> "시작 ${startedAt.toReportQuizSessionDateLabel()}"
         else -> "날짜 정보 없음"
     }
 
-private fun String.toReportDateLabel(): String = take(ISO_DATE_LENGTH).replace("-", ".")
-
-private fun String.toDifficultyLabel(): String =
-    when (this) {
-        "EASY" -> "쉬움"
-        "NORMAL" -> "보통"
-        "HARD" -> "어려움"
-        else -> this
-    }
-
-private fun String.toStatusLabel(): String =
-    when (this) {
-        "COMPLETED" -> "완료"
-        "STARTED" -> "진행 중"
-        "ABANDONED" -> "중단"
-        else -> this
-    }
-
 private const val QUIZ_SESSION_CARD_ALPHA = 0.45f
-private const val ISO_DATE_LENGTH = 10

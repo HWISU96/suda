@@ -4,6 +4,7 @@ import android.util.Log
 import com.ssafy.mobile.feature.report.data.api.ReportApiService
 import com.ssafy.mobile.feature.report.data.dto.toDomain
 import com.ssafy.mobile.feature.report.domain.model.ReportCategoryProgressPage
+import com.ssafy.mobile.feature.report.domain.model.ReportQuizSessionDetail
 import com.ssafy.mobile.feature.report.domain.model.ReportQuizSessionPage
 import com.ssafy.mobile.feature.report.domain.model.ReportSummary
 import com.ssafy.mobile.feature.report.domain.model.ReportWeakWordPage
@@ -178,14 +179,55 @@ class RemoteReportRepository
                 Result.failure(IllegalStateException("퀴즈 기록을 불러오는 중 오류가 발생했습니다."))
             }
 
+        override suspend fun getQuizSessionDetail(
+            childId: Long,
+            sessionId: Long,
+        ): Result<ReportQuizSessionDetail> =
+            try {
+                val response =
+                    apiService.getQuizSessionDetail(
+                        childId = childId,
+                        sessionId = sessionId,
+                    )
+
+                if (response.isSuccessful) {
+                    val body =
+                        response.body()
+                            ?: return Result.failure(IllegalStateException("퀴즈 기록 상세 응답이 비어 있습니다."))
+                    Result.success(body.toDomain())
+                } else {
+                    Result.failure(
+                        IllegalStateException(
+                            errorMessage(
+                                statusCode = response.code(),
+                                defaultMessage = "퀴즈 기록 상세를 불러오지 못했습니다.",
+                                notFoundMessage = "퀴즈 기록을 찾을 수 없습니다.",
+                            ),
+                        ),
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                Log.e(TAG, "Report quiz session detail network error", e)
+                Result.failure(IOException("네트워크 연결을 확인해 주세요."))
+            } catch (
+                @Suppress("TooGenericExceptionCaught")
+                e: Exception,
+            ) {
+                Log.e(TAG, "Report quiz session detail unknown error", e)
+                Result.failure(IllegalStateException("퀴즈 기록 상세를 불러오는 중 오류가 발생했습니다."))
+            }
+
         private fun errorMessage(
             statusCode: Int,
             defaultMessage: String,
+            notFoundMessage: String = "아이 정보를 찾을 수 없습니다. 아이를 다시 선택해 주세요.",
         ): String =
             when (statusCode) {
                 HTTP_STATUS_BAD_REQUEST -> "리포트 요청 값이 올바르지 않습니다."
                 HTTP_STATUS_UNAUTHORIZED -> "세션이 만료되었습니다. 다시 로그인해 주세요."
-                HTTP_STATUS_NOT_FOUND -> "아이 정보를 찾을 수 없습니다. 아이를 다시 선택해 주세요."
+                HTTP_STATUS_NOT_FOUND -> notFoundMessage
                 HTTP_STATUS_INTERNAL_SERVER_ERROR -> "서버에서 리포트 정보를 불러오지 못했습니다."
                 else -> defaultMessage
             }

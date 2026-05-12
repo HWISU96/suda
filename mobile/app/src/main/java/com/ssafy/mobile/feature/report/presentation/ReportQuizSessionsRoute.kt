@@ -42,6 +42,7 @@ import com.ssafy.mobile.feature.report.domain.model.ReportQuizSessionPage
 fun ReportQuizSessionsRoute(
     onNavigateBack: () -> Unit,
     onSwitchChild: () -> Unit,
+    onNavigateToDetail: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ReportQuizSessionsViewModel = hiltViewModel(),
 ) {
@@ -90,6 +91,7 @@ fun ReportQuizSessionsRoute(
             onRetryClick = viewModel::loadActiveChildProfile,
             onLoadMoreClick = viewModel::loadMoreQuizSessions,
             onSwitchChild = onSwitchChild,
+            onNavigateToDetail = onNavigateToDetail,
             modifier =
                 Modifier
                     .fillMaxSize()
@@ -105,6 +107,7 @@ private fun ReportQuizSessionsContent(
     onRetryClick: () -> Unit,
     onLoadMoreClick: () -> Unit,
     onSwitchChild: () -> Unit,
+    onNavigateToDetail: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -127,6 +130,7 @@ private fun ReportQuizSessionsContent(
                     state = quizSessionsState,
                     onRetryClick = onRetryClick,
                     onLoadMoreClick = onLoadMoreClick,
+                    onNavigateToDetail = onNavigateToDetail,
                 )
 
             ActiveChildProfileState.Missing ->
@@ -162,6 +166,7 @@ private fun LazyListScope.quizSessionsItems(
     state: ReportQuizSessionsState,
     onRetryClick: () -> Unit,
     onLoadMoreClick: () -> Unit,
+    onNavigateToDetail: (Long) -> Unit,
 ) {
     when (state) {
         ReportQuizSessionsState.Idle,
@@ -194,7 +199,10 @@ private fun LazyListScope.quizSessionsItems(
                 items = state.page.sessions,
                 key = { session -> session.sessionId },
             ) { session ->
-                ReportQuizSessionCard(session = session)
+                ReportQuizSessionCard(
+                    session = session,
+                    onClick = { onNavigateToDetail(session.sessionId) },
+                )
             }
             item {
                 ReportQuizSessionsMoreSection(

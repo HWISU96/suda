@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ssafy.backend.domain.auth.service.AccessTokenBlacklistStore;
 import com.ssafy.backend.global.security.ProblemDetailAccessDeniedHandler;
 import com.ssafy.backend.global.security.ProblemDetailAuthenticationEntryPoint;
+import com.ssafy.backend.global.security.Role;
 import com.ssafy.backend.global.security.jwt.JwtAuthenticationFilter;
 import com.ssafy.backend.global.security.jwt.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,12 +47,22 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
     })
 class SecurityAccessPolicyTest {
 
+  private static final String VALID_ACCESS_TOKEN = "valid-access-token";
+
   @Autowired private WebApplicationContext context;
+  @Autowired private JwtTokenProvider jwtTokenProvider;
+  @Autowired private AccessTokenBlacklistStore accessTokenBlacklistStore;
 
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
+    Mockito.reset(jwtTokenProvider, accessTokenBlacklistStore);
+    Mockito.when(jwtTokenProvider.validateToken(VALID_ACCESS_TOKEN)).thenReturn(true);
+    Mockito.when(jwtTokenProvider.isAccessToken(VALID_ACCESS_TOKEN)).thenReturn(true);
+    Mockito.when(jwtTokenProvider.getJti(VALID_ACCESS_TOKEN)).thenReturn("valid-access-jti");
+    Mockito.when(jwtTokenProvider.getUserId(VALID_ACCESS_TOKEN)).thenReturn(1L);
+    Mockito.when(jwtTokenProvider.getRole(VALID_ACCESS_TOKEN)).thenReturn(Role.USER);
     mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
   }
 
@@ -72,6 +83,16 @@ class SecurityAccessPolicyTest {
   }
 
   @Test
+  @DisplayName("헬스 체크와 API 문서 경로는 로그인 없이 호출할 수 있다")
+  void docsAndHealthApisArePublic() throws Exception {
+    mockMvc.perform(get("/api/v1/health")).andExpect(status().isOk());
+    mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+    mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+    mockMvc.perform(get("/swagger-ui.html")).andExpect(status().isOk());
+    mockMvc.perform(get("/error")).andExpect(status().isOk());
+  }
+
+  @Test
   @DisplayName("로그아웃과 인증 상태 조회는 로그인이 필요하다")
   void authProtectedApisRequireAuthentication() throws Exception {
     mockMvc.perform(post("/api/v1/auth/logout")).andExpect(status().isUnauthorized());
@@ -86,7 +107,15 @@ class SecurityAccessPolicyTest {
     mockMvc.perform(get("/api/v1/children")).andExpect(status().isUnauthorized());
     mockMvc.perform(post("/api/v1/children")).andExpect(status().isUnauthorized());
     mockMvc.perform(get("/api/v1/learn/categories")).andExpect(status().isUnauthorized());
-    mockMvc.perform(post("/api/v1/quiz/sessions")).andExpect(status().isUnauthorized());
+    mockMvc.perform(post("/api/v1/learn/quizzes/sessions")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("유효한 액세스 토큰이 있으면 보호 API를 호출할 수 있다")
+  void protectedApiAllowsValidAccessToken() throws Exception {
+    mockMvc
+        .perform(get("/api/v1/users/me").header("Authorization", "Bearer " + VALID_ACCESS_TOKEN))
+        .andExpect(status().isOk());
   }
 
   @Test
@@ -138,13 +167,22 @@ class SecurityAccessPolicyTest {
       "/api/v1/auth/refresh",
       "/api/v1/auth/logout",
       "/api/v1/children",
-      "/api/v1/quiz/sessions"
+      "/api/v1/learn/quizzes/sessions"
     })
     ResponseEntity<Void> postEndpoint() {
       return ResponseEntity.ok().build();
     }
 
-    @GetMapping({"/api/v1/auth/status", "/api/v1/users/me", "/api/v1/children"})
+    @GetMapping({
+      "/api/v1/auth/status",
+      "/api/v1/users/me",
+      "/api/v1/children",
+      "/api/v1/health",
+      "/v3/api-docs",
+      "/swagger-ui/index.html",
+      "/swagger-ui.html",
+      "/error"
+    })
     ResponseEntity<Void> getEndpoint() {
       return ResponseEntity.ok().build();
     }

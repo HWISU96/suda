@@ -72,10 +72,10 @@ private fun QuizRecordingStatus.message(
         QuizRecordingStatus.Recording -> "듣고 있어요. 다 말했으면 버튼을 눌러 주세요."
         QuizRecordingStatus.FallbackRecording ->
             "서버 인식이 어려워 기기에서 다시 듣고 있어요. 한 번 더 말해 주세요."
-        QuizRecordingStatus.Processing -> "말한 단어를 인식하고 있어요."
+        QuizRecordingStatus.Processing -> "녹음 파일을 준비하고 있어요."
         QuizRecordingStatus.Completed ->
             if (recognizedText.isNullOrBlank()) {
-                "단어를 인식했어요."
+                "녹음을 저장했어요. 답변을 확인하고 있어요."
             } else {
                 "인식 결과: $recognizedText"
             }

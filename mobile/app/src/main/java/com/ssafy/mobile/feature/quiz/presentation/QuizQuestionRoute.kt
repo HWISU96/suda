@@ -61,7 +61,7 @@ fun quizQuestionRoute(
     val quizState by quizViewModel.quizState.collectAsStateWithLifecycle()
     val answerSubmitState by quizViewModel.answerSubmitState.collectAsStateWithLifecycle()
     val recordingStatus by recordingViewModel.status.collectAsStateWithLifecycle()
-    val recognizedText by recordingViewModel.recognizedText.collectAsStateWithLifecycle()
+    val recordedAudio by recordingViewModel.recordedAudio.collectAsStateWithLifecycle()
     val recordingController =
         QuizRecordingController(
             status = recordingStatus,
@@ -82,10 +82,13 @@ fun quizQuestionRoute(
         recordingViewModel.reset()
     }
 
-    LaunchedEffect(recognizedText) {
-        val sttText = recognizedText ?: return@LaunchedEffect
-        quizViewModel.submitRecognizedText(sttText)
-        recordingViewModel.consumeRecognizedText()
+    LaunchedEffect(recordedAudio?.eventId) {
+        val audio = recordedAudio ?: return@LaunchedEffect
+        quizViewModel.submitRecordedAudio(
+            audioFile = audio.file,
+            audioMimeType = audio.mimeType,
+        )
+        recordingViewModel.consumeRecordedAudio()
     }
 
     LaunchedEffect(quizState.isFinished) {
@@ -379,7 +382,7 @@ private fun QuizPrompt(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "음성 인식 후 답변을 저장할게요",
+            text = "녹음한 답변을 확인하고 채점할게요",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -413,7 +416,6 @@ private fun QuizActionArea(
         !isProcessing &&
             !isSubmitting &&
             !isCompletionPending &&
-            !isSaveFailed &&
             !hasSuccessfulAnswer &&
             !retryLimitReached
     val canMoveNext =
@@ -441,10 +443,10 @@ private fun QuizActionArea(
             text =
                 when {
                     isRecording -> "말하기 완료"
-                    isProcessing -> "음성 인식 중..."
+                    isProcessing -> "답변 준비 중..."
                     isSubmitting -> "답변 저장 중..."
                     isCompletionPending -> "답변 저장 완료"
-                    isSaveFailed -> "저장 재시도 대기"
+                    isSaveFailed -> quizRetryButtonText(remainingRetryCount)
                     hasAnswered -> quizRetryButtonText(remainingRetryCount)
                     else -> "말하기"
                 },

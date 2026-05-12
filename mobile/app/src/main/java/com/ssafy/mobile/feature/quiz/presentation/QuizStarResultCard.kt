@@ -64,7 +64,7 @@ internal fun QuizStarResultCard(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = "인식 결과: ${answer.sttText}",
+                text = "인식 결과: ${answer.recognizedTextLabel()}",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
@@ -108,6 +108,15 @@ private fun retryDescription(remainingRetryCount: Int): String =
     } else {
         "충분히 연습했어요. 다음 문제로 넘어가도 괜찮아요."
     }
+
+private fun QuizAnswer.recognizedTextLabel(): String =
+    sttText
+        .takeIf { it.isNotBlank() }
+        ?: if (isScored) {
+            "인식 결과가 없어요"
+        } else {
+            "서버에서 음성을 확인하고 있어요"
+        }
 
 @Composable
 private fun Int?.starResultContainerColor(): Color =

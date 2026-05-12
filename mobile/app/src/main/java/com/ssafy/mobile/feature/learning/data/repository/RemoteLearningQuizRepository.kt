@@ -2,7 +2,6 @@ package com.ssafy.mobile.feature.learning.data.repository
 
 import android.util.Log
 import com.ssafy.mobile.feature.learning.data.api.LearningQuizApiService
-import com.ssafy.mobile.feature.learning.data.dto.LearningQuizAnswerRequestDto
 import com.ssafy.mobile.feature.learning.data.dto.LearningQuizSessionRequestDto
 import com.ssafy.mobile.feature.learning.data.dto.LearningQuizSessionStatusRequestDto
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizAnswerResult
@@ -10,12 +9,15 @@ import com.ssafy.mobile.feature.learning.domain.model.LearningQuizQuestion
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizResult
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSession
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizSessionStatus
-import com.ssafy.mobile.feature.learning.domain.model.PendingLearningQuizAnswerSubmission
-import com.ssafy.mobile.feature.learning.domain.repository.LearningQuizAnswerSubmissionQueueRepository
 import com.ssafy.mobile.feature.learning.domain.repository.LearningQuizRepository
+import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
 
 private const val QUIZ_TAG = "RemoteLearningQuizRepo"
@@ -32,7 +34,6 @@ class RemoteLearningQuizRepository
     @Inject
     constructor(
         private val apiService: LearningQuizApiService,
-        private val queueRepository: LearningQuizAnswerSubmissionQueueRepository,
     ) : LearningQuizRepository {
         override suspend fun createSession(
             childProfileId: Long,
@@ -64,66 +65,19 @@ class RemoteLearningQuizRepository
         override suspend fun submitAnswer(
             sessionId: Long,
             questionId: Long,
-            wordId: Long,
-            recognizedText: String,
-        ): Result<LearningQuizAnswerResult> {
-            val result =
-                runCatchingNetwork("Failed to submit quiz answer") {
-                    apiService
-                        .submitAnswer(
-                            sessionId = sessionId,
-                            request =
-                                LearningQuizAnswerRequestDto(
-                                    questionId = questionId,
-                                    wordId = wordId,
-                                    recognizedText = recognizedText,
-                                ),
-                        ).toResult { response ->
-                            response.toDomain()
-                        }
-                }
-
-            enqueuePendingAnswerSubmissionIfNeeded(
-                result = result,
-                sessionId = sessionId,
-                questionId = questionId,
-                wordId = wordId,
-                recognizedText = recognizedText,
-            )
-            return result
-        }
-
-        @Suppress("TooGenericExceptionCaught")
-        private suspend fun enqueuePendingAnswerSubmissionIfNeeded(
-            result: Result<LearningQuizAnswerResult>,
-            sessionId: Long,
-            questionId: Long,
-            wordId: Long,
-            recognizedText: String,
-        ) {
-            val failure = result.exceptionOrNull()
-            if (failure !is IOException) return
-
-            try {
-                val now = System.currentTimeMillis()
-                queueRepository.enqueueAnswerSubmission(
-                    PendingLearningQuizAnswerSubmission(
+            audioFile: File,
+            audioMimeType: String,
+        ): Result<LearningQuizAnswerResult> =
+            runCatchingNetwork("Failed to submit quiz answer") {
+                apiService
+                    .submitAnswer(
                         sessionId = sessionId,
-                        questionId = questionId,
-                        wordId = wordId,
-                        recognizedText = recognizedText,
-                        retryCount = 0,
-                        createdAtMillis = now,
-                        updatedAtMillis = now,
-                        lastFailureMessage = failure.message,
-                    ),
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(QUIZ_TAG, "Failed to enqueue pending quiz answer", e)
+                        questionId = questionId.toString().toTextRequestBody(),
+                        audioFile = audioFile.toMultipartAudioPart(audioMimeType),
+                    ).toResult { response ->
+                        response.toDomain()
+                    }
             }
-        }
 
         override suspend fun completeSession(sessionId: Long): Result<LearningQuizSessionStatus> =
             runCatchingNetwork("Failed to complete quiz session") {
@@ -194,4 +148,17 @@ class RemoteLearningQuizRepository
                 HTTP_STATUS_INTERNAL_SERVER_ERROR -> "서버에서 퀴즈 요청 처리에 실패했습니다."
                 else -> "퀴즈 요청 처리 중 오류가 발생했습니다."
             }
+
+        private fun String.toTextRequestBody() =
+            toRequestBody(TEXT_PLAIN_MEDIA_TYPE.toMediaTypeOrNull())
+
+        private fun File.toMultipartAudioPart(audioMimeType: String): MultipartBody.Part =
+            MultipartBody.Part.createFormData(
+                name = AUDIO_FILE_PART_NAME,
+                filename = name,
+                body = asRequestBody(audioMimeType.toMediaTypeOrNull()),
+            )
     }
+
+private const val TEXT_PLAIN_MEDIA_TYPE = "text/plain"
+private const val AUDIO_FILE_PART_NAME = "audioFile"

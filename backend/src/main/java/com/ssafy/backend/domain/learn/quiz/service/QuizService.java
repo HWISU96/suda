@@ -115,6 +115,7 @@ public class QuizService {
         word.getId(),
         question.getQuestionNumber(),
         session.getTotalQuestionCount(),
+        word.getDisplayText(),
         assetUrlResolver.toUrl(word.getImageUrl()));
   }
 

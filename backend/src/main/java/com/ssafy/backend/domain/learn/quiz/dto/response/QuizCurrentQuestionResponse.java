@@ -6,4 +6,5 @@ public record QuizCurrentQuestionResponse(
     Long wordId,
     Integer questionNumber,
     Integer totalQuestionCount,
+    String targetText,
     String imageUrl) {}

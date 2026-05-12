@@ -110,7 +110,6 @@ public class ReportQuizSessionQueryRepository {
         """
         SELECT
           COUNT(s.id),
-          COUNT(s.id),
           COALESCE(SUM(s.totalQuestionCount), 0),
           COALESCE(SUM(s.correctCount), 0),
           COALESCE(SUM(s.totalStar), 0)
@@ -124,7 +123,7 @@ public class ReportQuizSessionQueryRepository {
 
     Object[] row = (Object[]) query.getSingleResult();
     return new ReportSummaryAggregateRow(
-        toLong(row[0]), toLong(row[1]), toLong(row[2]), toLong(row[3]), toLong(row[4]));
+        toLong(row[0]), toLong(row[1]), toLong(row[2]), toLong(row[3]));
   }
 
   public Optional<ReportLatestCategoryQueryRow> findLatestCategory(

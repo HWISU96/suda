@@ -5,7 +5,6 @@ import java.util.List;
 
 public record ReportSummaryResponse(
     Long childId,
-    Long totalSessionCount,
     Long completedSessionCount,
     Long totalQuestionCount,
     Long totalCorrectCount,

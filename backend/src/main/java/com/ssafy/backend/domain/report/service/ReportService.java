@@ -75,7 +75,6 @@ public class ReportService {
 
     return new ReportSummaryResponse(
         childId,
-        summary.totalSessionCount(),
         summary.completedSessionCount(),
         summary.totalQuestionCount(),
         summary.totalCorrectCount(),

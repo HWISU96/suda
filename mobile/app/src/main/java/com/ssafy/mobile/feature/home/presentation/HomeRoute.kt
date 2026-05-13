@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,8 +24,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ssafy.mobile.core.ui.components.AppBadge
+import com.ssafy.mobile.core.ui.components.AppBadgeTone
+import com.ssafy.mobile.core.ui.components.AppCard
+import com.ssafy.mobile.core.ui.components.AppLoadingIndicator
 import com.ssafy.mobile.core.ui.components.AppPrimaryButton
 import com.ssafy.mobile.core.ui.components.AppSecondaryButton
+import com.ssafy.mobile.core.ui.feedback.AppErrorText
 import com.ssafy.mobile.feature.childprofile.domain.ActiveChildProfileState
 
 @Composable
@@ -64,7 +68,7 @@ fun HomeRoute(
                     .fillMaxSize()
                     .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             ActiveChildSection(
                 state = uiState.activeChildState,
@@ -72,36 +76,11 @@ fun HomeRoute(
                 onRetryClick = viewModel::loadActiveChildProfile,
             )
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "SUDA",
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
+            HomeActionSection(
+                onStartLearning = onStartLearning,
+                onStartConversation = onStartConversation,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "오늘도 즐겁게 말하고 배워볼까요?",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            AppPrimaryButton(
-                text = "학습 시작",
-                onClick = onStartLearning,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            AppSecondaryButton(
-                text = "소통 시작",
-                onClick = onStartConversation,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -113,80 +92,166 @@ private fun ActiveChildSection(
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    AppCard(modifier = modifier.fillMaxWidth()) {
         when (state) {
             is ActiveChildProfileState.Loading -> {
-                Text(
-                    text = "아이 정보를 불러오는 중...",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                ActiveChildLoadingContent()
             }
 
             is ActiveChildProfileState.Selected -> {
-                val childDescription =
-                    state.profile.age?.let { age ->
-                        "${state.profile.name} (${age}세)"
-                    } ?: state.profile.name
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = childDescription,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "아이와 함께하고 있어요",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                AppSecondaryButton(
-                    text = "아이 변경",
-                    onClick = onSwitchClick,
-                    modifier = Modifier.height(36.dp),
+                SelectedActiveChildContent(
+                    state = state,
+                    onSwitchClick = onSwitchClick,
                 )
             }
 
             is ActiveChildProfileState.Missing, is ActiveChildProfileState.NotFound -> {
-                val message =
-                    if (state is ActiveChildProfileState.NotFound) {
-                        "선택된 아이 정보를 찾을 수 없습니다."
-                    } else {
-                        "선택된 아이가 없습니다."
-                    }
-                Text(
-                    text = "$message 다시 선택해 주세요.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                AppPrimaryButton(
-                    text = "아이 선택하러 가기",
-                    onClick = onSwitchClick,
-                    modifier = Modifier.height(40.dp),
+                MissingActiveChildContent(
+                    state = state,
+                    onSwitchClick = onSwitchClick,
                 )
             }
 
             is ActiveChildProfileState.Error -> {
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                AppSecondaryButton(
-                    text = "다시 시도",
-                    onClick = onRetryClick,
+                ActiveChildErrorContent(
+                    message = state.message,
+                    onRetryClick = onRetryClick,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ActiveChildLoadingContent() {
+    AppLoadingIndicator(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(96.dp),
+        message = "아이 정보를 불러오는 중입니다.",
+    )
+}
+
+@Composable
+private fun SelectedActiveChildContent(
+    state: ActiveChildProfileState.Selected,
+    onSwitchClick: () -> Unit,
+) {
+    val childDescription =
+        state.profile.age?.let { age ->
+            "${state.profile.name} (${age}세)"
+        } ?: state.profile.name
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = childDescription,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "아이와 함께하고 있어요",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AppBadge(
+            text = "선택됨",
+            tone = AppBadgeTone.Primary,
+        )
+    }
+    Spacer(modifier = Modifier.height(16.dp))
+    AppSecondaryButton(
+        text = "아이 변경",
+        onClick = onSwitchClick,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun MissingActiveChildContent(
+    state: ActiveChildProfileState,
+    onSwitchClick: () -> Unit,
+) {
+    val message =
+        if (state is ActiveChildProfileState.NotFound) {
+            "선택된 아이 정보를 찾을 수 없습니다."
+        } else {
+            "선택된 아이가 없습니다."
+        }
+
+    AppErrorText(
+        message = "$message 다시 선택해 주세요.",
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    AppPrimaryButton(
+        text = "아이 선택하러 가기",
+        onClick = onSwitchClick,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun ActiveChildErrorContent(
+    message: String,
+    onRetryClick: () -> Unit,
+) {
+    AppErrorText(
+        message = message,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    AppSecondaryButton(
+        text = "다시 시도",
+        onClick = onRetryClick,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun HomeActionSection(
+    onStartLearning: () -> Unit,
+    onStartConversation: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "SUDA",
+            style = MaterialTheme.typography.displayMedium,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "오늘도 즐겁게 말하고 배워볼까요?",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        AppPrimaryButton(
+            text = "학습 시작",
+            onClick = onStartLearning,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        AppSecondaryButton(
+            text = "소통 시작",
+            onClick = onStartConversation,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

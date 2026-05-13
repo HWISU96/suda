@@ -15,14 +15,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,14 +29,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.ssafy.mobile.core.ui.components.AppBadge
+import com.ssafy.mobile.core.ui.components.AppBadgeTone
+import com.ssafy.mobile.core.ui.components.AppCard
+import com.ssafy.mobile.core.ui.components.AppLoadingIndicator
+import com.ssafy.mobile.core.ui.components.AppPrimaryButton
+import com.ssafy.mobile.core.ui.components.AppSecondaryButton
+import com.ssafy.mobile.core.ui.feedback.AppEmptyState
+import com.ssafy.mobile.core.ui.feedback.AppErrorText
 import com.ssafy.mobile.feature.childprofile.domain.model.ChildProfile
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChildProfileSelectRoute(
     navController: NavController,
@@ -85,6 +94,7 @@ fun ChildProfileSelectRoute(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChildProfileSelectScreen(
     uiState: ChildProfileSelectUiState,
@@ -95,51 +105,61 @@ private fun ChildProfileSelectScreen(
     onNavigateToEdit: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "아이 선택",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "아이 선택",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "학습을 진행할 아이를 선택해 주세요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-        Text(
-            text = "학습을 진행할 아이를 선택해 주세요.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        when (uiState) {
-            is ChildProfileSelectUiState.Loading -> {
-                LoadingContent()
-            }
-            is ChildProfileSelectUiState.Success -> {
-                ProfileList(
-                    profiles = uiState.profiles,
-                    activeChildId = uiState.activeChildId,
-                    isSelecting = isSelecting,
-                    onProfileSelect = onProfileSelect,
-                    onNavigateToCreate = onNavigateToCreate,
-                    onNavigateToEdit = onNavigateToEdit,
-                )
-            }
-            is ChildProfileSelectUiState.Empty -> {
-                EmptyContent(onNavigateToCreate = onNavigateToCreate)
-            }
-            is ChildProfileSelectUiState.Error -> {
-                ErrorContent(
-                    message = uiState.message,
-                    onRetry = onRetry,
-                )
+            when (uiState) {
+                is ChildProfileSelectUiState.Loading -> {
+                    LoadingContent()
+                }
+                is ChildProfileSelectUiState.Success -> {
+                    ProfileList(
+                        profiles = uiState.profiles,
+                        activeChildId = uiState.activeChildId,
+                        isSelecting = isSelecting,
+                        onProfileSelect = onProfileSelect,
+                        onNavigateToCreate = onNavigateToCreate,
+                        onNavigateToEdit = onNavigateToEdit,
+                    )
+                }
+                is ChildProfileSelectUiState.Empty -> {
+                    EmptyContent(onNavigateToCreate = onNavigateToCreate)
+                }
+                is ChildProfileSelectUiState.Error -> {
+                    ErrorContent(
+                        message = uiState.message,
+                        onRetry = onRetry,
+                    )
+                }
             }
         }
     }
@@ -147,15 +167,7 @@ private fun ChildProfileSelectScreen(
 
 @Composable
 private fun LoadingContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator()
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "목록을 불러오는 중입니다...")
-    }
+    AppLoadingIndicator(message = "아이 목록을 불러오는 중입니다.")
 }
 
 @Composable
@@ -184,13 +196,12 @@ private fun ProfileList(
 
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            TextButton(
+            AppPrimaryButton(
+                text = "아이 추가하기",
                 onClick = onNavigateToCreate,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isSelecting,
-            ) {
-                Text(text = "+ 아이 추가하기")
-            }
+            )
         }
     }
 }
@@ -203,29 +214,19 @@ private fun ProfileItem(
     onClick: () -> Unit,
     onEditClick: () -> Unit,
 ) {
-    Card(
+    AppCard(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .alpha(if (enabled) 1f else DISABLED_ALPHA)
                 .clickable(
                     enabled = enabled,
                     onClick = onClick,
                 ),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-            ),
     ) {
         Row(
             modifier =
-                Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
+                Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
@@ -252,6 +253,9 @@ private fun ProfileItem(
                 Text(
                     text = profile.name,
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (profile.age != null) {
                     Text(
@@ -263,11 +267,9 @@ private fun ProfileItem(
             }
 
             if (isSelected) {
-                Text(
+                AppBadge(
                     text = "현재 선택됨",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
+                    tone = AppBadgeTone.Primary,
                 )
                 Spacer(modifier = Modifier.width(12.dp))
             }
@@ -292,15 +294,14 @@ private fun EmptyContent(onNavigateToCreate: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = "등록된 아이가 없습니다.",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
+        AppEmptyState(
+            message = "등록된 아이가 없습니다.",
+            modifier = Modifier.weight(1f),
         )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onNavigateToCreate) {
-            Text(text = "아이 프로필 만들기")
-        }
+        AppPrimaryButton(
+            text = "아이 프로필 만들기",
+            onClick = onNavigateToCreate,
+        )
     }
 }
 
@@ -314,15 +315,16 @@ private fun ErrorContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center,
+        AppErrorText(
+            message = message,
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(16.dp))
-        TextButton(onClick = onRetry) {
-            Text(text = "다시 시도")
-        }
+        AppSecondaryButton(
+            text = "다시 시도",
+            onClick = onRetry,
+        )
     }
 }
+
+private const val DISABLED_ALPHA = 0.5f

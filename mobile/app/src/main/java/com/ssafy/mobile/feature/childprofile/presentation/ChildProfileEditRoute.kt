@@ -2,7 +2,6 @@ package com.ssafy.mobile.feature.childprofile.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,14 +9,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +29,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ssafy.mobile.core.ui.components.AppCard
+import com.ssafy.mobile.core.ui.components.AppLoadingIndicator
+import com.ssafy.mobile.core.ui.components.AppPrimaryButton
+import com.ssafy.mobile.core.ui.components.AppSecondaryButton
+import com.ssafy.mobile.core.ui.components.AppTextField
+import com.ssafy.mobile.core.ui.feedback.AppErrorText
 
 @Composable
 fun ChildProfileEditRoute(
@@ -75,6 +79,7 @@ fun ChildProfileEditRoute(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Suppress("LongParameterList")
 private fun ChildProfileEditScreen(
@@ -105,20 +110,23 @@ private fun ChildProfileEditScreen(
         )
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            EditTopBar(
+                isEditMode = isEditMode,
+                enabled = !isSaving && !isLoading,
+                onBack = onBack,
+            )
+        },
+    ) { padding ->
         Column(
             modifier =
                 modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(24.dp),
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
-            EditHeader(
-                isEditMode = isEditMode,
-                enabled = !isSaving && !isLoading,
-                onBack = onBack,
-            )
-
             if (isLoading) {
                 LoadingPlaceholder(modifier = Modifier.weight(1f))
             } else if (isEditMode && !isProfileLoaded && uiState is ChildProfileEditUiState.Error) {
@@ -128,7 +136,6 @@ private fun ChildProfileEditScreen(
                     modifier = Modifier.weight(1f),
                 )
             } else {
-                Spacer(modifier = Modifier.height(32.dp))
                 EditForm(
                     name = name,
                     birthDate = birthDate,
@@ -150,26 +157,27 @@ private fun ChildProfileEditScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditHeader(
+private fun EditTopBar(
     isEditMode: Boolean,
     enabled: Boolean,
     onBack: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = if (isEditMode) "아이 프로필 수정" else "아이 프로필 추가",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        TextButton(onClick = onBack, enabled = enabled) {
-            Text("취소")
-        }
-    }
+    TopAppBar(
+        title = {
+            Text(
+                text = if (isEditMode) "아이 프로필 수정" else "아이 프로필 추가",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        actions = {
+            TextButton(onClick = onBack, enabled = enabled) {
+                Text("취소")
+            }
+        },
+    )
 }
 
 @Composable
@@ -182,36 +190,52 @@ private fun EditForm(
     onBirthDateChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
+    val isNameError = errorMessage?.contains("이름") == true
+    val isBirthDateError =
+        errorMessage?.let { message ->
+            message.contains("생년월일") ||
+                message.contains("날짜") ||
+                message.contains("나이") ||
+                message.contains("미래")
+        } == true
+
+    AppCard(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "아이 정보",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        AppTextField(
             value = name,
             onValueChange = onNameChange,
-            label = { Text("아이 이름") },
-            placeholder = { Text("예: 민준") },
+            label = "아이 이름",
+            placeholder = "예: 민준",
             modifier = Modifier.fillMaxWidth(),
             enabled = !isSaving,
-            singleLine = true,
+            isError = isNameError,
+            supportingText = if (isNameError) errorMessage else null,
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
+        AppTextField(
             value = birthDate,
             onValueChange = onBirthDateChange,
-            label = { Text("생년월일") },
-            placeholder = { Text("예: 20200501") },
+            label = "생년월일",
+            placeholder = "예: 20200501",
             modifier = Modifier.fillMaxWidth(),
             enabled = !isSaving,
+            isError = isBirthDateError,
+            supportingText = if (isBirthDateError) errorMessage else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
         )
 
-        if (errorMessage != null) {
+        if (errorMessage != null && !isNameError && !isBirthDateError) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
+            AppErrorText(
+                message = errorMessage,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -225,13 +249,13 @@ private fun EditActionButtons(
     onDeleteRequest: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Button(
+        AppPrimaryButton(
+            text = if (isSaving) "저장 중..." else "저장하기",
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
             enabled = !isSaving,
-        ) {
-            Text(text = if (isSaving) "저장 중..." else "저장하기")
-        }
+            loading = isSaving,
+        )
 
         if (isEditMode) {
             Spacer(modifier = Modifier.height(12.dp))
@@ -252,15 +276,10 @@ private fun EditActionButtons(
 
 @Composable
 private fun LoadingPlaceholder(modifier: Modifier = Modifier) {
-    Column(
+    AppLoadingIndicator(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CircularProgressIndicator()
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "아이 정보를 불러오고 있어요...", style = MaterialTheme.typography.bodyMedium)
-    }
+        message = "아이 정보를 불러오고 있어요.",
+    )
 }
 
 @Composable
@@ -274,16 +293,15 @@ private fun ErrorPlaceholder(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        AppErrorText(
+            message = message,
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRetry) {
-            Text("다시 시도")
-        }
+        AppSecondaryButton(
+            text = "다시 시도",
+            onClick = onRetry,
+        )
     }
 }
 

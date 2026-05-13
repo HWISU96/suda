@@ -146,6 +146,8 @@ class ReportServiceQueryValidationTest {
   @DisplayName("조회 날짜는 시작일 00:00부터 종료일 다음날 00:00 전까지 전달한다")
   void getSummaryPassesParsedDateRangeToRepository() {
     givenOwnedActiveChild();
+    LocalDateTime from = LocalDateTime.of(2026, 5, 1, 0, 0);
+    LocalDateTime to = LocalDateTime.of(2026, 5, 8, 0, 0);
     when(reportQuizSessionQueryRepository.summarize(
             eq(CHILD_ID), any(LocalDateTime.class), any(LocalDateTime.class)))
         .thenReturn(new ReportSummaryAggregateRow(0L, 0L, 0L, 0L));
@@ -163,9 +165,10 @@ class ReportServiceQueryValidationTest {
 
     reportService.getSummary(USER_ID, CHILD_ID, "2026-05-01", "2026-05-07");
 
+    verify(reportQuizSessionQueryRepository).summarize(CHILD_ID, from, to);
+    verify(reportQuizSessionQueryRepository).findLatestCategory(CHILD_ID, from, to);
     verify(reportQuizSessionQueryRepository)
-        .summarize(
-            CHILD_ID, LocalDateTime.of(2026, 5, 1, 0, 0), LocalDateTime.of(2026, 5, 8, 0, 0));
+        .findWeakWords(eq(CHILD_ID), eq(from), eq(to), eq(null), eq(1), any());
   }
 
   @Test

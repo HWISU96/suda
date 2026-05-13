@@ -1,6 +1,7 @@
 package com.ssafy.mobile.feature.report.domain.repository
 
 import com.ssafy.mobile.feature.report.domain.model.ReportCategoryProgressPage
+import com.ssafy.mobile.feature.report.domain.model.ReportQuizSessionDetail
 import com.ssafy.mobile.feature.report.domain.model.ReportQuizSessionPage
 import com.ssafy.mobile.feature.report.domain.model.ReportSummary
 import com.ssafy.mobile.feature.report.domain.model.ReportWeakWordPage
@@ -25,4 +26,9 @@ interface ReportRepository {
         page: Int,
         size: Int,
     ): Result<ReportQuizSessionPage>
+
+    suspend fun getQuizSessionDetail(
+        childId: Long,
+        sessionId: Long,
+    ): Result<ReportQuizSessionDetail>
 }

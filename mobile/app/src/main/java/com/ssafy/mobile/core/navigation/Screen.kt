@@ -65,4 +65,8 @@ sealed class Screen(
     data object ReportCategoryProgress : Screen("report_category_progress_route")
 
     data object ReportQuizSessions : Screen("report_quiz_sessions_route")
+
+    data object ReportQuizSessionDetail : Screen("report_quiz_session_detail/{sessionId}") {
+        fun createRoute(sessionId: Long) = "report_quiz_session_detail/$sessionId"
+    }
 }

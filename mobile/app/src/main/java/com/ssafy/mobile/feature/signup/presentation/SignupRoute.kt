@@ -12,11 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -37,6 +35,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ssafy.mobile.core.ui.components.AppCard
+import com.ssafy.mobile.core.ui.components.AppPrimaryButton
+import com.ssafy.mobile.core.ui.components.AppSecondaryButton
+import com.ssafy.mobile.core.ui.components.AppTextField
+import com.ssafy.mobile.core.ui.feedback.AppErrorText
 
 @Composable
 fun SignupRoute(
@@ -102,55 +105,65 @@ private fun SignupScreen(
 ) {
     val isLoading = uiState is SignupUiState.Loading
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp)
-                .imePadding(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
-        SignupHeader()
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
+                    .imePadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            SignupHeader()
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-        SignupInputFields(
-            email = email,
-            password = password,
-            confirmPassword = confirmPassword,
-            name = name,
-            emailError = emailError,
-            passwordError = passwordError,
-            confirmPasswordError = confirmPasswordError,
-            nameError = nameError,
-            isLoading = isLoading,
-            onEmailChanged = onEmailChanged,
-            onPasswordChanged = onPasswordChanged,
-            onConfirmPasswordChanged = onConfirmPasswordChanged,
-            onNameChanged = onNameChanged,
-            onSignupClick = onSignupClick,
-        )
+            AppCard(modifier = Modifier.fillMaxWidth()) {
+                SignupInputFields(
+                    email = email,
+                    password = password,
+                    confirmPassword = confirmPassword,
+                    name = name,
+                    emailError = emailError,
+                    passwordError = passwordError,
+                    confirmPasswordError = confirmPasswordError,
+                    nameError = nameError,
+                    isLoading = isLoading,
+                    onEmailChanged = onEmailChanged,
+                    onPasswordChanged = onPasswordChanged,
+                    onConfirmPasswordChanged = onConfirmPasswordChanged,
+                    onNameChanged = onNameChanged,
+                    onSignupClick = onSignupClick,
+                )
 
-        Spacer(modifier = Modifier.height(16.dp))
+                AppErrorText(
+                    message = (uiState as? SignupUiState.Error)?.message.orEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-        if (uiState is SignupUiState.Error) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SignupActionButtons(
+                    isLoading = isLoading,
+                    onSignupClick = onSignupClick,
+                    onNavigateToLogin = onNavigateToLogin,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = uiState.message,
-                color = MaterialTheme.colorScheme.error,
+                text = "가입 후 로그인하면 아이 프로필을 만들고 학습을 시작할 수 있어요.",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.height(8.dp))
         }
-
-        SignupActionButtons(
-            isLoading = isLoading,
-            onSignupClick = onSignupClick,
-            onNavigateToLogin = onNavigateToLogin,
-        )
     }
 }
 
@@ -158,14 +171,23 @@ private fun SignupScreen(
 private fun SignupHeader() {
     Text(
         text = "SUDA",
-        style = MaterialTheme.typography.headlineLarge,
+        style = MaterialTheme.typography.displayMedium,
         color = MaterialTheme.colorScheme.primary,
+        fontWeight = FontWeight.Black,
     )
     Spacer(modifier = Modifier.height(8.dp))
     Text(
         text = "보호자 회원가입",
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.headlineSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Bold,
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = "보호자 정보를 등록하고 아이의 학습 여정을 준비해요.",
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
     )
 }
 
@@ -191,17 +213,13 @@ private fun SignupInputFields(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
 
-    OutlinedTextField(
+    AppTextField(
         value = email,
         onValueChange = onEmailChanged,
-        label = { Text("이메일") },
-        placeholder = { Text("example@email.com") },
+        label = "이메일",
+        placeholder = "example@email.com",
         isError = emailError != null,
-        supportingText =
-            emailError?.let {
-                { Text(text = it, color = MaterialTheme.colorScheme.error) }
-            },
-        singleLine = true,
+        supportingText = emailError,
         enabled = !isLoading,
         keyboardOptions =
             KeyboardOptions(
@@ -215,19 +233,13 @@ private fun SignupInputFields(
         modifier = Modifier.fillMaxWidth(),
     )
 
-    Spacer(modifier = Modifier.height(8.dp))
-
-    OutlinedTextField(
+    AppTextField(
         value = name,
         onValueChange = onNameChanged,
-        label = { Text("보호자 이름") },
-        placeholder = { Text("이름을 입력해 주세요") },
+        label = "보호자 이름",
+        placeholder = "이름을 입력해 주세요",
         isError = nameError != null,
-        supportingText =
-            nameError?.let {
-                { Text(text = it, color = MaterialTheme.colorScheme.error) }
-            },
-        singleLine = true,
+        supportingText = nameError,
         enabled = !isLoading,
         keyboardOptions =
             KeyboardOptions(
@@ -241,18 +253,12 @@ private fun SignupInputFields(
         modifier = Modifier.fillMaxWidth(),
     )
 
-    Spacer(modifier = Modifier.height(8.dp))
-
-    OutlinedTextField(
+    AppTextField(
         value = password,
         onValueChange = onPasswordChanged,
-        label = { Text("비밀번호") },
+        label = "비밀번호",
         isError = passwordError != null,
-        supportingText =
-            passwordError?.let {
-                { Text(text = it, color = MaterialTheme.colorScheme.error) }
-            },
-        singleLine = true,
+        supportingText = passwordError,
         enabled = !isLoading,
         visualTransformation =
             if (passwordVisible) {
@@ -277,18 +283,12 @@ private fun SignupInputFields(
         modifier = Modifier.fillMaxWidth(),
     )
 
-    Spacer(modifier = Modifier.height(8.dp))
-
-    OutlinedTextField(
+    AppTextField(
         value = confirmPassword,
         onValueChange = onConfirmPasswordChanged,
-        label = { Text("비밀번호 확인") },
+        label = "비밀번호 확인",
         isError = confirmPasswordError != null,
-        supportingText =
-            confirmPasswordError?.let {
-                { Text(text = it, color = MaterialTheme.colorScheme.error) }
-            },
-        singleLine = true,
+        supportingText = confirmPasswordError,
         enabled = !isLoading,
         visualTransformation =
             if (confirmPasswordVisible) {
@@ -323,29 +323,20 @@ private fun SignupActionButtons(
     onSignupClick: () -> Unit,
     onNavigateToLogin: () -> Unit,
 ) {
-    Button(
+    AppPrimaryButton(
+        text = "회원가입",
         onClick = onSignupClick,
         enabled = !isLoading,
+        loading = isLoading,
         modifier = Modifier.fillMaxWidth(),
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.height(20.dp),
-            )
-        } else {
-            Text(text = "회원가입")
-        }
-    }
+    )
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    OutlinedButton(
+    AppSecondaryButton(
+        text = "로그인으로 돌아가기",
         onClick = onNavigateToLogin,
         enabled = !isLoading,
         modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(text = "로그인으로 돌아가기")
-    }
+    )
 }

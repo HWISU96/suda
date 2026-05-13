@@ -12,12 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Assessment
-import androidx.compose.material.icons.rounded.Chat
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +44,7 @@ import com.ssafy.mobile.core.navigation.Screen
 import com.ssafy.mobile.core.permission.PermissionGuide
 import com.ssafy.mobile.core.permission.PermissionHandler
 import com.ssafy.mobile.core.permission.PermissionRequestState
+import com.ssafy.mobile.core.ui.icons.SudaBottomNavIcons
 import com.ssafy.mobile.core.ui.theme.MobileTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -266,26 +261,26 @@ private val bottomNavigationItems =
         BottomNavigationItem(
             screen = Screen.Home,
             label = "홈",
-            icon = Icons.Rounded.Home,
+            icon = SudaBottomNavIcons.Home,
         ),
         BottomNavigationItem(
             screen = Screen.LearningCategory,
             label = "학습",
-            icon = Icons.Rounded.School,
+            icon = SudaBottomNavIcons.Learning,
         ),
         BottomNavigationItem(
             screen = Screen.ReportHome,
             label = "리포트",
-            icon = Icons.Rounded.Assessment,
+            icon = SudaBottomNavIcons.Report,
         ),
         BottomNavigationItem(
             screen = Screen.Conversation,
             label = "소통",
-            icon = Icons.Rounded.Chat,
+            icon = SudaBottomNavIcons.Conversation,
         ),
         BottomNavigationItem(
             screen = Screen.MyPage,
             label = "마이",
-            icon = Icons.Rounded.Person,
+            icon = SudaBottomNavIcons.Profile,
         ),
     )

@@ -13,6 +13,7 @@ import com.ssafy.mobile.core.stt.SttEvent
 import com.ssafy.mobile.core.vision.SignRecognitionEngine
 import com.ssafy.mobile.core.vision.landmark.LandmarkFrameResult
 import com.ssafy.mobile.feature.conversation.domain.model.ChatMessage
+import com.ssafy.mobile.feature.conversation.domain.model.LocalSignSentenceGenerator
 import com.ssafy.mobile.feature.conversation.domain.model.MessageStatus
 import com.ssafy.mobile.feature.conversation.domain.model.SenderType
 import com.ssafy.mobile.feature.conversation.domain.model.TranslationFeedbackReason
@@ -69,6 +70,7 @@ class ConversationViewModel
         private val sttEngine: SttEngine,
         private val networkMonitor: NetworkMonitor,
         private val androidAudioRecorder: AndroidAudioRecorder,
+        private val localSignSentenceGenerator: LocalSignSentenceGenerator,
     ) : ViewModel() {
         private val _sessionState = MutableStateFlow(SessionState.Idle)
         val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
@@ -191,7 +193,7 @@ class ConversationViewModel
             _lastGlosses.value = currentGlosses
             _signInputPhase.value = SignInputPhase.Collecting
 
-            restartTranslationTimer(currentGlosses)
+            restartTranslationTimer(glosses = currentGlosses)
         }
 
         private fun handleUtterance(event: SignRecognitionEvent.Utterance) {
@@ -199,7 +201,10 @@ class ConversationViewModel
 
             _lastGlosses.value = event.glosses
             _signInputPhase.value = SignInputPhase.Collecting
-            restartTranslationTimer(event.glosses)
+            restartTranslationTimer(
+                glosses = event.glosses,
+                sentenceType = event.sentenceType,
+            )
         }
 
         private fun handleNoHandsDetected() {
@@ -213,18 +218,27 @@ class ConversationViewModel
             addSystemMessage(event.message)
         }
 
-        private fun restartTranslationTimer(glosses: List<String>) {
+        private fun restartTranslationTimer(
+            glosses: List<String>,
+            sentenceType: String? = null,
+        ) {
             completionTimerJob?.cancel()
             completionTimerJob =
                 viewModelScope.launch {
                     delay(COMPLETION_THRESHOLD_MS)
                     if (glosses.isNotEmpty()) {
-                        requestTranslation(glosses)
+                        requestTranslation(
+                            words = glosses,
+                            sentenceType = sentenceType,
+                        )
                     }
                 }
         }
 
-        private fun requestTranslation(words: List<String>) {
+        private fun requestTranslation(
+            words: List<String>,
+            sentenceType: String? = null,
+        ) {
             translationJob?.cancel()
             _signInputPhase.value = SignInputPhase.Translating
             when (_translationMode.value) {
@@ -232,11 +246,13 @@ class ConversationViewModel
                     if (_isOnline.value) {
                         performCloudTranslation(
                             words = words,
+                            sentenceType = sentenceType,
                             fallbackOnFailure = true,
                         )
                     } else {
                         performOnDeviceTranslation(
                             words = words,
+                            sentenceType = sentenceType,
                             notice = NOTICE_AUTO_OFFLINE_FALLBACK,
                         )
                     }
@@ -245,6 +261,7 @@ class ConversationViewModel
                     if (_isOnline.value) {
                         performCloudTranslation(
                             words = words,
+                            sentenceType = sentenceType,
                             fallbackOnFailure = false,
                         )
                     } else {
@@ -254,12 +271,17 @@ class ConversationViewModel
                         )
                     }
 
-                TranslationMode.ON_DEVICE -> performOnDeviceTranslation(words = words)
+                TranslationMode.ON_DEVICE ->
+                    performOnDeviceTranslation(
+                        words = words,
+                        sentenceType = sentenceType,
+                    )
             }
         }
 
         private fun performCloudTranslation(
             words: List<String>,
+            sentenceType: String?,
             fallbackOnFailure: Boolean,
         ) {
             _signInputPhase.value = SignInputPhase.Translating
@@ -301,6 +323,7 @@ class ConversationViewModel
                                 )
                                 performOnDeviceTranslation(
                                     words = words,
+                                    sentenceType = sentenceType,
                                     notice = NOTICE_AUTO_SERVER_FALLBACK,
                                 )
                             } else {
@@ -318,6 +341,7 @@ class ConversationViewModel
 
         private fun performOnDeviceTranslation(
             words: List<String>,
+            sentenceType: String? = null,
             notice: String? = null,
         ) {
             notice?.let { _translationModeNotice.value = it }
@@ -327,7 +351,14 @@ class ConversationViewModel
                 } else {
                     SignInputPhase.Fallback
                 }
-            val fallbackText = words.joinToString(" ")
+            val fallbackText =
+                localSignSentenceGenerator
+                    .generate(
+                        glosses = words,
+                        sentenceType = sentenceType,
+                    ).ifBlank {
+                        words.joinToString(" ")
+                    }
             _translatedText.value = fallbackText
 
             // 오프라인이므로 즉시 최종 메시지로 추가

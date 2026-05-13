@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -359,12 +360,13 @@ private fun CameraPreviewBox(
 ) {
     val showAnalysisBitmap = showDebugOverlay && analysisBitmap != null
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().clipToBounds()) {
         AndroidView(
             factory = { previewView },
             modifier =
                 Modifier
                     .fillMaxSize()
+                    .clipToBounds()
                     .alpha(if (showAnalysisBitmap) 0.0f else 1.0f),
         )
 

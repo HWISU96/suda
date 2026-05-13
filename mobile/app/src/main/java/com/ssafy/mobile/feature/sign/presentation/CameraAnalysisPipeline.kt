@@ -56,7 +56,7 @@ internal fun bindCameraUseCases(
     settings: CameraAnalysisSettings = CameraAnalysisSettings(),
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
 ): CameraBinding {
-    val targetRotation = previewView.display?.rotation ?: Surface.ROTATION_90
+    val targetRotation = previewView.display?.rotation ?: Surface.ROTATION_0
     val previewUseCase = createPreviewUseCase(previewView, targetRotation, settings)
     val cameraConfig = selectCamera(cameraProvider)
     val analysisUseCase =

@@ -197,7 +197,12 @@ private fun ConversationScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            Column {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background),
+            ) {
                 SessionHeader(
                     sessionState = uiState.sessionState,
                     signInputPhase = uiState.signInputPhase,
@@ -342,7 +347,6 @@ private fun CameraFullscreenPlaceholder(modifier: Modifier = Modifier) {
     Box(
         modifier =
             modifier
-                .fillMaxWidth()
                 .background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
@@ -369,7 +373,7 @@ private fun SignRecognitionArea(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
     ) {
         SignRecognitionScreen(
             isSessionActive = sessionState == SessionState.Active,

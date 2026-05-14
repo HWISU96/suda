@@ -15,10 +15,15 @@ import com.ssafy.backend.domain.translation.dto.SignToSpeechRequestDto;
 import com.ssafy.backend.domain.translation.dto.SignToSpeechResponseDto;
 import com.ssafy.backend.domain.translation.dto.SpeechToTextResponseDto;
 import com.ssafy.backend.domain.translation.exception.TranslationErrorCode;
+import com.ssafy.backend.domain.user.entity.TtsSpeaker;
+import com.ssafy.backend.domain.user.entity.User;
+import com.ssafy.backend.domain.user.exception.UserErrorCode;
+import com.ssafy.backend.domain.user.repository.UserRepository;
 import com.ssafy.backend.global.exception.BusinessException;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,13 +39,15 @@ class TranslationServiceImplTest {
   @Mock private SignLanguageCorrectionClient signLanguageCorrectionClient;
   @Mock private ClovaTtsClient clovaTtsClient;
   @Mock private ClovaSttClient clovaSttClient;
+  @Mock private UserRepository userRepository;
 
   private TranslationServiceImpl translationService;
 
   @BeforeEach
   void setUp() {
     translationService =
-        new TranslationServiceImpl(signLanguageCorrectionClient, clovaTtsClient, clovaSttClient);
+        new TranslationServiceImpl(
+            signLanguageCorrectionClient, clovaTtsClient, clovaSttClient, userRepository);
   }
 
   @Test
@@ -215,10 +222,10 @@ class TranslationServiceImplTest {
     SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마", "해보다"), null, true);
     byte[] audioBytes = new byte[] {1, 2, 3};
     when(signLanguageCorrectionClient.correct("[엄마, 해보다]")).thenReturn("엄마 해봐!");
-    when(clovaTtsClient.synthesize("엄마 해봐!")).thenReturn(audioBytes);
+    when(clovaTtsClient.synthesize("엄마 해봐!", TtsSpeaker.MOM_WARM.getCode())).thenReturn(audioBytes);
     when(clovaTtsClient.getAudioMimeType()).thenReturn("audio/mpeg");
 
-    SignToSpeechResponseDto response = translationService.translateSignToSpeech(request);
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(null, request);
 
     assertThat(response.originalWords()).containsExactly("엄마", "해보다");
     assertThat(response.correctedText()).isEqualTo("엄마 해봐!");
@@ -226,8 +233,9 @@ class TranslationServiceImplTest {
     assertThat(response.audioMimeType()).isEqualTo("audio/mpeg");
     assertThat(response.corrected()).isTrue();
     verify(signLanguageCorrectionClient).correct("[엄마, 해보다]");
-    verify(clovaTtsClient).synthesize("엄마 해봐!");
+    verify(clovaTtsClient).synthesize("엄마 해봐!", TtsSpeaker.MOM_WARM.getCode());
     verify(clovaTtsClient).getAudioMimeType();
+    verifyNoInteractions(userRepository);
     verifyNoInteractions(clovaSttClient);
   }
 
@@ -237,16 +245,53 @@ class TranslationServiceImplTest {
     SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("안녕"), "ko-KR", null);
     byte[] audioBytes = new byte[] {4, 5, 6};
     when(signLanguageCorrectionClient.correct("[안녕]")).thenReturn("안녕");
-    when(clovaTtsClient.synthesize("안녕")).thenReturn(audioBytes);
+    when(clovaTtsClient.synthesize("안녕", TtsSpeaker.MOM_WARM.getCode())).thenReturn(audioBytes);
     when(clovaTtsClient.getAudioMimeType()).thenReturn("audio/mpeg");
 
-    SignToSpeechResponseDto response = translationService.translateSignToSpeech(request);
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(null, request);
 
     assertThat(response.correctedText()).isEqualTo("안녕");
     assertThat(response.audioBase64()).isEqualTo(Base64.getEncoder().encodeToString(audioBytes));
     assertThat(response.audioMimeType()).isEqualTo("audio/mpeg");
     assertThat(response.corrected()).isFalse();
-    verify(clovaTtsClient).synthesize("안녕");
+    verify(clovaTtsClient).synthesize("안녕", TtsSpeaker.MOM_WARM.getCode());
+  }
+
+  @Test
+  @DisplayName("로그인 사용자의 TTS speaker 설정으로 음성을 생성한다")
+  void translateSignToSpeechUsesUserTtsSpeaker() {
+    Long userId = 1L;
+    User user = User.create("guardian@example.com", "encoded-password", "보호자");
+    user.updateTtsSpeaker(TtsSpeaker.DAD_CALM.getCode());
+    SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("아빠"), "ko-KR", true);
+    byte[] audioBytes = new byte[] {7, 8, 9};
+    when(signLanguageCorrectionClient.correct("[아빠]")).thenReturn("아빠");
+    when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+    when(clovaTtsClient.synthesize("아빠", TtsSpeaker.DAD_CALM.getCode())).thenReturn(audioBytes);
+    when(clovaTtsClient.getAudioMimeType()).thenReturn("audio/mpeg");
+
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(userId, request);
+
+    assertThat(response.audioBase64()).isEqualTo(Base64.getEncoder().encodeToString(audioBytes));
+    verify(userRepository).findById(userId);
+    verify(clovaTtsClient).synthesize("아빠", TtsSpeaker.DAD_CALM.getCode());
+  }
+
+  @Test
+  @DisplayName("로그인 사용자를 찾을 수 없으면 TTS 요청을 실패 처리한다")
+  void translateSignToSpeechRejectsMissingUser() {
+    Long userId = 999L;
+    SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마"), "ko-KR", true);
+    when(signLanguageCorrectionClient.correct("[엄마]")).thenReturn("엄마");
+    when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> translationService.translateSignToSpeech(userId, request))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND));
+    verify(userRepository).findById(userId);
+    verifyNoInteractions(clovaTtsClient, clovaSttClient);
   }
 
   @Test
@@ -256,13 +301,14 @@ class TranslationServiceImplTest {
         new SignToSpeechRequestDto(List.of("엄마", "해보다"), "ko-KR", false);
     when(signLanguageCorrectionClient.correct("[엄마, 해보다]")).thenReturn("엄마 해봐!");
 
-    SignToSpeechResponseDto response = translationService.translateSignToSpeech(request);
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(1L, request);
 
     assertThat(response.correctedText()).isEqualTo("엄마 해봐!");
     assertThat(response.audioBase64()).isNull();
     assertThat(response.audioMimeType()).isNull();
     assertThat(response.corrected()).isTrue();
     verify(signLanguageCorrectionClient).correct("[엄마, 해보다]");
+    verifyNoInteractions(userRepository);
     verifyNoInteractions(clovaTtsClient, clovaSttClient);
   }
 
@@ -274,8 +320,9 @@ class TranslationServiceImplTest {
         .thenThrow(new IllegalStateException("correction failed"));
 
     assertTranslationError(
-        () -> translationService.translateSignToSpeech(request),
+        () -> translationService.translateSignToSpeech(1L, request),
         TranslationErrorCode.SIGN_CORRECTION_FAILED);
+    verifyNoInteractions(userRepository);
     verifyNoInteractions(clovaTtsClient, clovaSttClient);
   }
 
@@ -284,12 +331,14 @@ class TranslationServiceImplTest {
   void translateSignToSpeechMapsTtsFailure() {
     SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마"), "ko-KR", true);
     when(signLanguageCorrectionClient.correct("[엄마]")).thenReturn("엄마");
-    when(clovaTtsClient.synthesize("엄마")).thenThrow(new IllegalStateException("tts failed"));
+    when(clovaTtsClient.synthesize("엄마", TtsSpeaker.MOM_WARM.getCode()))
+        .thenThrow(new IllegalStateException("tts failed"));
 
     assertTranslationError(
-        () -> translationService.translateSignToSpeech(request),
+        () -> translationService.translateSignToSpeech(null, request),
         TranslationErrorCode.TEXT_TO_SPEECH_FAILED);
-    verify(clovaTtsClient).synthesize("엄마");
+    verify(clovaTtsClient).synthesize("엄마", TtsSpeaker.MOM_WARM.getCode());
+    verifyNoInteractions(userRepository);
     verifyNoInteractions(clovaSttClient);
   }
 

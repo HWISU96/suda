@@ -180,6 +180,36 @@ class TranslationServiceImplTest {
   }
 
   @Test
+  @DisplayName("audio/wave MIME type도 STT 요청에 사용할 수 있다")
+  void translateSpeechToTextAllowsAudioWaveMimeType() {
+    MockMultipartFile audio = wavAudio("audio/wave");
+    when(clovaSttClient.transcribe(any(MultipartFile.class), eq("ko-KR"), eq("audio/wave")))
+        .thenReturn("안녕하세요");
+
+    SpeechToTextResponseDto response =
+        translationService.translateSpeechToText(audio, "ko-KR", null);
+
+    assertThat(response.recognizedText()).isEqualTo("안녕하세요");
+    assertThat(response.locale()).isEqualTo("ko-KR");
+    verify(clovaSttClient).transcribe(any(MultipartFile.class), eq("ko-KR"), eq("audio/wave"));
+  }
+
+  @Test
+  @DisplayName("audio/x-wav MIME type도 STT 요청에 사용할 수 있다")
+  void translateSpeechToTextAllowsAudioXWavMimeType() {
+    MockMultipartFile audio = wavAudio("audio/x-wav");
+    when(clovaSttClient.transcribe(any(MultipartFile.class), eq("ko-KR"), eq("audio/x-wav")))
+        .thenReturn("안녕하세요");
+
+    SpeechToTextResponseDto response =
+        translationService.translateSpeechToText(audio, "ko-KR", null);
+
+    assertThat(response.recognizedText()).isEqualTo("안녕하세요");
+    assertThat(response.locale()).isEqualTo("ko-KR");
+    verify(clovaSttClient).transcribe(any(MultipartFile.class), eq("ko-KR"), eq("audio/x-wav"));
+  }
+
+  @Test
   @DisplayName("수어 단어를 보정하고 TTS 음성을 Base64로 반환한다")
   void translateSignToSpeechReturnsCorrectedTextAndAudio() {
     SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마", "해보다"), null, true);

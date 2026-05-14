@@ -19,7 +19,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    private const val NETWORK_TIMEOUT_SEC = 30L
+    private const val NETWORK_TIMEOUT_SEC = 60L
 
     @Provides
     @Singleton

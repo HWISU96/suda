@@ -5,10 +5,8 @@ import com.ssafy.mobile.feature.learning.data.dto.LearningQuizCurrentQuestionRes
 import com.ssafy.mobile.feature.learning.data.dto.LearningQuizResultResponseDto
 import com.ssafy.mobile.feature.learning.data.dto.LearningQuizSessionRequestDto
 import com.ssafy.mobile.feature.learning.data.dto.LearningQuizSessionResponseDto
-import com.ssafy.mobile.feature.learning.data.dto.LearningQuizSessionStatusRequestDto
 import com.ssafy.mobile.feature.learning.data.dto.LearningQuizSessionStatusResponseDto
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -17,6 +15,7 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface LearningQuizApiService {
     @POST("v1/learn/quizzes/sessions")
@@ -33,14 +32,13 @@ interface LearningQuizApiService {
     @POST("v1/learn/quizzes/sessions/{sessionId}/answers")
     suspend fun submitAnswer(
         @Path("sessionId") sessionId: Long,
-        @Part("questionId") questionId: RequestBody,
+        @Query("questionId") questionId: Long,
         @Part audioFile: MultipartBody.Part,
     ): Response<LearningQuizAnswerResponseDto>
 
     @PATCH("v1/learn/quizzes/sessions/{sessionId}")
     suspend fun updateSessionStatus(
         @Path("sessionId") sessionId: Long,
-        @Body request: LearningQuizSessionStatusRequestDto,
     ): Response<LearningQuizSessionStatusResponseDto>
 
     @GET("v1/learn/quizzes/sessions/{sessionId}/result")

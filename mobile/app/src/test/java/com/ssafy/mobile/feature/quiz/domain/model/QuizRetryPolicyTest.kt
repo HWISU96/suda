@@ -7,16 +7,16 @@ import org.junit.Test
 
 class QuizRetryPolicyTest {
     @Test
-    fun lowStarAnswerCanRetryBeforeLimit() {
+    fun scoredLowStarAnswerCanMoveNextWithoutRetry() {
         val answer = answer(star = ONE_STAR, attemptCount = ONE_ATTEMPT)
 
-        assertEquals(TWO_RETRIES_LEFT, QuizRetryPolicy.remainingRetryCount(answer))
-        assertFalse(QuizRetryPolicy.isRetryLimitReached(answer))
-        assertFalse(QuizRetryPolicy.canMoveNext(answer, canSkipQuestion = false))
+        assertEquals(NO_RETRY_LEFT, QuizRetryPolicy.remainingRetryCount(answer))
+        assertTrue(QuizRetryPolicy.isRetryLimitReached(answer))
+        assertTrue(QuizRetryPolicy.canMoveNext(answer, canSkipQuestion = false))
     }
 
     @Test
-    fun lowStarAnswerCanMoveNextAfterRetryLimit() {
+    fun scoredLowStarAnswerCanMoveNextAfterMultipleLocalAttempts() {
         val answer = answer(star = TWO_STARS, attemptCount = MAX_ATTEMPTS)
 
         assertEquals(NO_RETRY_LEFT, QuizRetryPolicy.remainingRetryCount(answer))
@@ -68,7 +68,6 @@ class QuizRetryPolicyTest {
         const val ONE_ATTEMPT = 1
         const val ONE_RETRY_LEFT = 1
         const val TWO_ATTEMPTS = 2
-        const val TWO_RETRIES_LEFT = 2
         const val MAX_ATTEMPTS = 3
         const val ONE_STAR = 1
         const val TWO_STARS = 2

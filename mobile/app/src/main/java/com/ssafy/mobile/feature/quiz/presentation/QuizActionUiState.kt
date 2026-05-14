@@ -182,6 +182,7 @@ private fun quizRecordButtonText(
         isSubmitting -> "답변 저장 중..."
         isCompletionPending -> "답변 저장 완료"
         isSaveFailed -> quizRetryButtonText(remainingRetryCount)
+        hasAnswered && remainingRetryCount == 0 -> "답변 저장 완료"
         hasAnswered -> quizRetryButtonText(remainingRetryCount)
         else -> "말하기"
     }

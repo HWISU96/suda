@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 class LocalSttEngine
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : SttEngine {
         private var speechRecognizer: SpeechRecognizer? = null
         private val mainHandler = Handler(Looper.getMainLooper())

@@ -12,6 +12,7 @@ import com.ssafy.mobile.feature.conversation.data.repository.DataStoreTranslatio
 import com.ssafy.mobile.feature.conversation.data.repository.DefaultTranslateRepository
 import com.ssafy.mobile.feature.conversation.domain.repository.TranslateRepository
 import com.ssafy.mobile.feature.conversation.domain.repository.TranslationModeRepository
+import com.ssafy.mobile.translation.GemmaOnDeviceTranslationEngine
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -59,5 +60,11 @@ abstract class ConversationModule {
         @Provides
         @Singleton
         fun provideWordSpottingScanner(): WordSpottingScanner = NoOpWordSpottingScanner
+
+        @Provides
+        @Singleton
+        fun provideGemmaOnDeviceTranslationEngine(
+            @ApplicationContext context: Context,
+        ): GemmaOnDeviceTranslationEngine = GemmaOnDeviceTranslationEngine(context)
     }
 }

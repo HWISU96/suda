@@ -16,7 +16,7 @@ import javax.inject.Singleton
 class AndroidSystemTtsPlayer
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : TtsPlayer {
         private var tts: TextToSpeech? = null
         private var isInitialized = false

@@ -31,6 +31,7 @@ import com.ssafy.mobile.core.vision.feature.LandmarkFeatureSequenceResampler
 import com.ssafy.mobile.core.vision.inference.SignInferenceResult
 import com.ssafy.mobile.core.vision.landmark.LandmarkFrameResult
 import com.ssafy.mobile.core.vision.landmark.MediaPipeHolisticLandmarkExtractor
+import com.ssafy.mobile.translation.GemmaOnDeviceTranslationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -81,8 +82,22 @@ data class SignDebugUiState(
     val debugFrameSaveMessage: String? = null,
     val isAnalysisRecording: Boolean = false,
     val analysisRecordingMessage: String? = null,
+    val llmInput: String = "",
+    val llmIsRunning: Boolean = false,
+    val llmStatus: SignDebugLlmStatus = SignDebugLlmStatus.Idle,
+    val llmStage: String = "대기 중",
+    val llmSummary: String = "Gloss를 입력하고 LLM 테스트를 실행하세요.",
+    val llmDetail: String = "",
+    val llmOutput: String? = null,
     val errorMessage: String? = null,
 )
+
+enum class SignDebugLlmStatus {
+    Idle,
+    Running,
+    Success,
+    Failure,
+}
 
 @HiltViewModel
 class SignDebugViewModel
@@ -90,6 +105,7 @@ class SignDebugViewModel
     constructor(
         @param:ApplicationContext private val appContext: Context,
         private val signRecognitionEngine: SignRecognitionEngine,
+        private val gemmaOnDeviceTranslationEngine: GemmaOnDeviceTranslationEngine,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SignDebugUiState())
         val uiState: StateFlow<SignDebugUiState> = _uiState.asStateFlow()
@@ -103,6 +119,85 @@ class SignDebugViewModel
             signRecognitionEngine.updateConfig(_uiState.value.recognitionConfig)
             viewModelScope.launch {
                 signRecognitionEngine.events.collect(::handleEvent)
+            }
+            preloadLlm()
+        }
+
+        fun updateLlmInput(input: String) {
+            _uiState.update { it.copy(llmInput = input) }
+        }
+
+        fun runLlmTest() {
+            val gloss = _uiState.value.llmInput.trim()
+            if (gloss.isBlank()) {
+                _uiState.update {
+                    it.copy(
+                        llmIsRunning = false,
+                        llmStatus = SignDebugLlmStatus.Failure,
+                        llmStage = "입력 필요",
+                        llmSummary = "Gloss 입력값이 비어 있습니다.",
+                        llmDetail = "예: 나 내일 학교 가다",
+                        llmOutput = null,
+                    )
+                }
+                return
+            }
+
+            viewModelScope.launch {
+                val startedAt = System.currentTimeMillis()
+                _uiState.update {
+                    it.copy(
+                        llmIsRunning = true,
+                        llmStatus = SignDebugLlmStatus.Running,
+                        llmStage = "응답 생성 준비",
+                        llmSummary = "규칙 기반 또는 Gemma로 문장을 생성하고 있습니다.",
+                        llmDetail = buildLlmDebugSummary(),
+                        llmOutput = null,
+                    )
+                }
+
+                runCatching {
+                    withContext(Dispatchers.Default) {
+                        gemmaOnDeviceTranslationEngine.translate(gloss)
+                    }
+                }.onSuccess { translationResult ->
+                    val totalElapsed = System.currentTimeMillis() - startedAt
+                    val sourceLabel =
+                        if (translationResult.usedRuleBased) {
+                            "규칙 기반"
+                        } else {
+                            "Gemma"
+                        }
+                    _uiState.update {
+                        it.copy(
+                            llmIsRunning = false,
+                            llmStatus = SignDebugLlmStatus.Success,
+                            llmStage = "응답 생성 성공",
+                            llmSummary = "모델 호출이 정상 완료되었습니다.",
+                            llmDetail =
+                                buildLlmDebugSummary() +
+                                    "\n처리 방식: $sourceLabel" +
+                                    "\n총 소요 시간: ${totalElapsed}ms" +
+                                    "\n생성 시간: ${translationResult.elapsedMs}ms" +
+                                    "\n원본 응답: ${translationResult.rawText.toSingleLinePreview()}",
+                            llmOutput = translationResult.koreanText,
+                        )
+                    }
+                }.onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(
+                            llmIsRunning = false,
+                            llmStatus = SignDebugLlmStatus.Failure,
+                            llmStage = "모델 호출 실패",
+                            llmSummary = "로드 또는 응답 생성 중 오류가 발생했습니다.",
+                            llmDetail =
+                                buildLlmDebugSummary() +
+                                    "\n오류: ${throwable::class.java.simpleName}" +
+                                    "\n메시지: ${throwable.message ?: "알 수 없는 오류"}",
+                            llmOutput = null,
+                        )
+                    }
+                }
             }
         }
 
@@ -1058,6 +1153,44 @@ class SignDebugViewModel
                 separator = ",",
             )
 
+        private fun preloadLlm() {
+            viewModelScope.launch {
+                runCatching {
+                    gemmaOnDeviceTranslationEngine.load()
+                }.onFailure { throwable ->
+                    Log.w(TAG_LLM, "Gemma preload failed in sign debug screen.", throwable)
+                }
+            }
+        }
+
+        private fun buildLlmDebugSummary(): String =
+            buildString {
+                appendLine("모델: ${gemmaOnDeviceTranslationEngine.debugModelAssetPath}")
+                appendLine(
+                    "maxTokens: ${gemmaOnDeviceTranslationEngine.debugMaxTokens}, " +
+                        "topK: ${gemmaOnDeviceTranslationEngine.debugTopK}",
+                )
+                appendLine("backend: ${gemmaOnDeviceTranslationEngine.debugBackendSummary}")
+                gemmaOnDeviceTranslationEngine.debugPreparedModelPath?.let { preparedPath ->
+                    appendLine("준비된 파일: $preparedPath")
+                }
+                if (gemmaOnDeviceTranslationEngine.debugPreparedEntryNames.isNotEmpty()) {
+                    append(
+                        "번들 엔트리: " +
+                            gemmaOnDeviceTranslationEngine.debugPreparedEntryNames.joinToString(),
+                    )
+                }
+            }.trim()
+
+        private fun String.toSingleLinePreview(maxLength: Int = 160): String {
+            val compact =
+                lineSequence()
+                    .joinToString(" ") { it.trim() }
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+            return if (compact.length <= maxLength) compact else compact.take(maxLength) + "..."
+        }
+
         override fun onCleared() {
             analysisRecorder?.let { recorder ->
                 runCatching { recorder.stop() }
@@ -1096,6 +1229,7 @@ class SignDebugViewModel
             const val PERCENT_MULTIPLIER = 100f
             const val SHOW_REPLAY_RAW_PREDICTIONS = false
             const val LOG_REPLAY_RAW_PREDICTIONS = false
+            const val TAG_LLM = "SignDebugLLM"
             const val TAG_REPLAY = "SignReplay"
             const val TAG_REPLAY_FRAME = "SignReplayFrame"
         }

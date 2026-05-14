@@ -345,6 +345,7 @@ private fun QuizAnswerStarRating(star: Int) {
 }
 
 @Composable
+@Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
 private fun QuizAnswerRecognizedText(recognizedText: String?) {
     val hasRecognizedText = !recognizedText.isNullOrBlank()
     val displayText = if (hasRecognizedText) recognizedText!! else "음성 인식 결과가 없어요"

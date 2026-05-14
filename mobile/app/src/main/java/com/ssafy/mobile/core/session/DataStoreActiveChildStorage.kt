@@ -18,7 +18,7 @@ private val Context.activeChildDataStore: DataStore<Preferences> by preferencesD
 class DataStoreActiveChildStorage
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : ActiveChildStorage {
         companion object {
             private val KEY_ACTIVE_CHILD_ID = longPreferencesKey("active_child_id")

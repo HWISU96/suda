@@ -6,17 +6,40 @@ import javax.inject.Inject
 class LocalSignSentenceGenerator
     @Inject
     constructor() {
+        @Suppress("ReturnCount")
         fun generate(
             glosses: List<String>,
             sentenceType: String? = null,
             speechStyle: SpeechStyle = SpeechStyle.Polite,
         ): String {
+            val knownPattern =
+                generateKnownPatternOrNull(
+                    glosses = glosses,
+                    sentenceType = sentenceType,
+                    speechStyle = speechStyle,
+                )
+            if (knownPattern != null) {
+                return knownPattern
+            }
+
             val words = glosses.normalize()
             if (words.isEmpty()) return ""
 
             val mood = SentenceMood.from(sentenceType)
             return renderKnownPattern(words, mood, speechStyle)
                 ?: renderFallback(words, mood)
+        }
+
+        fun generateKnownPatternOrNull(
+            glosses: List<String>,
+            sentenceType: String? = null,
+            speechStyle: SpeechStyle = SpeechStyle.Polite,
+        ): String? {
+            val words = glosses.normalize()
+            if (words.isEmpty()) return null
+
+            val mood = SentenceMood.from(sentenceType)
+            return renderKnownPattern(words, mood, speechStyle)
         }
 
         @Suppress("MagicNumber", "ReturnCount")

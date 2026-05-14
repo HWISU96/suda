@@ -40,12 +40,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ssafy.mobile.core.vision.landmark.LandmarkFrameResult
@@ -66,6 +71,7 @@ fun SignDebugRoute(
     viewModel: SignDebugViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showLlmDebugDialog by rememberSaveable { mutableStateOf(false) }
     val videoPickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let(viewModel::startVideoReplay)
@@ -76,6 +82,15 @@ fun SignDebugRoute(
     }
 
     BackHandler(onBack = stopAndBack)
+
+    if (showLlmDebugDialog) {
+        LlmDebugDialog(
+            uiState = uiState,
+            onDismiss = { showLlmDebugDialog = false },
+            onInputChanged = viewModel::updateLlmInput,
+            onRunTest = viewModel::runLlmTest,
+        )
+    }
 
     SignDebugScreen(
         uiState = uiState,
@@ -97,6 +112,7 @@ fun SignDebugRoute(
         onCycleSmoothing = viewModel::cycleSmoothing,
         onPickReplayVideo = { videoPickerLauncher.launch("video/*") },
         onStopVideoReplay = viewModel::stopVideoReplay,
+        onOpenLlmDebug = { showLlmDebugDialog = true },
         modifier = modifier,
     )
 }
@@ -122,6 +138,7 @@ private fun SignDebugScreen(
     onCycleSmoothing: () -> Unit,
     onPickReplayVideo: () -> Unit,
     onStopVideoReplay: () -> Unit,
+    onOpenLlmDebug: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ForceLandscapeOrientationEffect()
@@ -204,6 +221,10 @@ private fun SignDebugScreen(
                 )
                 RecognitionStatusCard(uiState)
                 PerformanceCard(uiState)
+                LlmDebugLauncherCard(
+                    uiState = uiState,
+                    onOpenLlmDebug = onOpenLlmDebug,
+                )
                 TuningCard(
                     uiState = uiState,
                     onCycleResolution = onCycleResolution,
@@ -624,6 +645,112 @@ private fun PerformanceCard(uiState: SignDebugUiState) {
     }
 }
 
+@Composable
+private fun LlmDebugLauncherCard(
+    uiState: SignDebugUiState,
+    onOpenLlmDebug: () -> Unit,
+) {
+    DebugCard(title = "LLM 테스트") {
+        CompactDebugButton(
+            text = "열기",
+            onClick = onOpenLlmDebug,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        MetricRow("상태", uiState.llmStage)
+        uiState.llmOutput?.let { output ->
+            Text(
+                text = output,
+                color = Color(0xFFBAE6FD),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LlmDebugDialog(
+    uiState: SignDebugUiState,
+    onDismiss: () -> Unit,
+    onInputChanged: (String) -> Unit,
+    onRunTest: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = llmPanelColor(uiState.llmStatus),
+            shape = RoundedCornerShape(18.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "LLM 테스트",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    CompactDebugButton(
+                        text = "닫기",
+                        onClick = onDismiss,
+                        outlined = true,
+                    )
+                }
+                OutlinedTextField(
+                    value = uiState.llmInput,
+                    onValueChange = onInputChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Gloss 입력") },
+                    placeholder = { Text("예: 나 내일 학교 가다") },
+                    minLines = 2,
+                    maxLines = 4,
+                )
+                CompactDebugButton(
+                    text = if (uiState.llmIsRunning) "실행 중" else "LLM 테스트 실행",
+                    onClick = onRunTest,
+                    enabled = !uiState.llmIsRunning,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = uiState.llmStage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+                Text(
+                    text = uiState.llmSummary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFE2E8F0),
+                )
+                if (uiState.llmDetail.isNotBlank()) {
+                    Text(
+                        text = uiState.llmDetail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFCBD5E1),
+                    )
+                }
+                uiState.llmOutput?.let { output ->
+                    Surface(
+                        color = Color(0xFF0F172A),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(
+                            text = output,
+                            modifier = Modifier.padding(12.dp),
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TuningCard(
@@ -786,6 +913,14 @@ private fun StatusPill(
         )
     }
 }
+
+private fun llmPanelColor(status: SignDebugLlmStatus): Color =
+    when (status) {
+        SignDebugLlmStatus.Idle -> Color(0xFF1E293B)
+        SignDebugLlmStatus.Running -> Color(0xFF5B3D00)
+        SignDebugLlmStatus.Success -> Color(0xFF14532D)
+        SignDebugLlmStatus.Failure -> Color(0xFF7F1D1D)
+    }
 
 private fun formatDecimal(value: Double): String = String.format(Locale.US, "%.1f", value)
 

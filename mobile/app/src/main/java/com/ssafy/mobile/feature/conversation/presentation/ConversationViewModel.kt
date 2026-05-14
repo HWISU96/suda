@@ -20,6 +20,7 @@ import com.ssafy.mobile.feature.conversation.domain.model.TranslationFeedbackRea
 import com.ssafy.mobile.feature.conversation.domain.model.TranslationMode
 import com.ssafy.mobile.feature.conversation.domain.repository.TranslateRepository
 import com.ssafy.mobile.feature.conversation.domain.repository.TranslationModeRepository
+import com.ssafy.mobile.translation.GemmaOnDeviceTranslationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
@@ -71,6 +72,7 @@ class ConversationViewModel
         private val networkMonitor: NetworkMonitor,
         private val androidAudioRecorder: AndroidAudioRecorder,
         private val localSignSentenceGenerator: LocalSignSentenceGenerator,
+        private val gemmaOnDeviceTranslationEngine: GemmaOnDeviceTranslationEngine,
     ) : ViewModel() {
         private val _sessionState = MutableStateFlow(SessionState.Idle)
         val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
@@ -126,12 +128,16 @@ class ConversationViewModel
         private var cloudSttFailureCount = 0
         private var cloudSttDiscardCount = 0
         private var pendingFeedbackRequest: TranslationFeedbackRequest? = null
+        private val onDeviceSpeechStyle = LocalSignSentenceGenerator.SpeechStyle.Polite
 
         init {
             viewModelScope.launch {
                 translationModeRepository.translationMode.collect { mode ->
                     val previousMode = _translationMode.value
                     _translationMode.value = mode
+                    if (mode == TranslationMode.ON_DEVICE) {
+                        preloadOnDeviceTranslationEngine()
+                    }
                     if (previousMode != mode) {
                         resetCloudSttFallback()
                         _translationModeNotice.value = null
@@ -169,6 +175,7 @@ class ConversationViewModel
                     }
                 }
             }
+            preloadOnDeviceTranslationEngine()
         }
 
         private fun handleEvent(event: SignRecognitionEvent) {
@@ -351,33 +358,105 @@ class ConversationViewModel
                 } else {
                     SignInputPhase.Fallback
                 }
-            val fallbackText =
+            translationJob =
+                viewModelScope.launch {
+                    val fallbackText =
+                        resolveOnDeviceTranslation(
+                            words = words,
+                            sentenceType = sentenceType,
+                        )
+                    _translatedText.value = fallbackText
+
+                    // 오프라인이므로 즉시 최종 메시지로 추가
+                    addOrUpdateMessage(
+                        text = fallbackText,
+                        isFinal = true,
+                        senderType = SenderType.PARENT,
+                        isFeedbackAvailable = true,
+                    )
+
+                    // 시스템 TTS로 재생
+                    markAppSpeech(fallbackText)
+                    ttsPlayer.speak(
+                        text = fallbackText,
+                        onComplete = {},
+                        onError = {},
+                    )
+
+                    _lastGlosses.value = emptyList()
+                }
+        }
+
+        @Suppress("ReturnCount")
+        private suspend fun resolveOnDeviceTranslation(
+            words: List<String>,
+            sentenceType: String?,
+        ): String {
+            localSignSentenceGenerator
+                .generateKnownPatternOrNull(
+                    glosses = words,
+                    sentenceType = sentenceType,
+                    speechStyle = onDeviceSpeechStyle,
+                )?.let { return it }
+
+            val glossText = words.joinToString(" ").trim()
+            if (glossText.isBlank()) {
+                return ""
+            }
+
+            return runCatching {
+                normalizeTranslatedSentence(
+                    text = gemmaOnDeviceTranslationEngine.translate(glossText).koreanText,
+                    sentenceType = sentenceType,
+                )
+            }.getOrElse { throwable ->
+                Log.w(
+                    TAG,
+                    "On-device Gemma translation failed. Falling back to local generator.",
+                    throwable,
+                )
                 localSignSentenceGenerator
                     .generate(
                         glosses = words,
                         sentenceType = sentenceType,
+                        speechStyle = onDeviceSpeechStyle,
                     ).ifBlank {
-                        words.joinToString(" ")
+                        glossText
                     }
-            _translatedText.value = fallbackText
+            }
+        }
 
-            // 오프라인이므로 즉시 최종 메시지로 추가
-            addOrUpdateMessage(
-                text = fallbackText,
-                isFinal = true,
-                senderType = SenderType.PARENT,
-                isFeedbackAvailable = true,
-            )
+        private fun normalizeTranslatedSentence(
+            text: String,
+            sentenceType: String?,
+        ): String {
+            val trimmed = text.trim()
+            if (trimmed.isBlank()) {
+                return trimmed
+            }
 
-            // 시스템 TTS로 재생
-            markAppSpeech(fallbackText)
-            ttsPlayer.speak(
-                text = fallbackText,
-                onComplete = {},
-                onError = {},
-            )
+            val bare = trimmed.trimEnd('.', '?', '!')
+            return if (isQuestionSentenceType(sentenceType)) {
+                "$bare?"
+            } else if (trimmed.last() in ".?!") {
+                trimmed
+            } else {
+                "$trimmed."
+            }
+        }
 
-            _lastGlosses.value = emptyList()
+        private fun isQuestionSentenceType(sentenceType: String?): Boolean =
+            sentenceType?.contains("의문") == true ||
+                sentenceType.equals("question", ignoreCase = true)
+
+        private fun preloadOnDeviceTranslationEngine() {
+            viewModelScope.launch {
+                runCatching {
+                    gemmaOnDeviceTranslationEngine.load()
+                }.onFailure { throwable ->
+                    Log.w(TAG, "On-device Gemma preload failed.", throwable)
+                }
+            }
         }
 
         private fun startRecordingForStt() {

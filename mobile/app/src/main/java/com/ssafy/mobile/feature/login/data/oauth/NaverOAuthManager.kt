@@ -1,7 +1,8 @@
 package com.ssafy.mobile.feature.login.data.oauth
 
 import android.content.Context
-import com.navercorp.nid.NaverIdLoginSDK
+import com.navercorp.nid.NidOAuth
+import com.navercorp.nid.oauth.util.NidOAuthCallback
 import com.ssafy.mobile.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,7 +32,7 @@ class NaverOAuthManager
         fun initialize(context: Context) {
             if (!isConfigValid) return
 
-            NaverIdLoginSDK.initialize(
+            NidOAuth.initialize(
                 context = context,
                 clientId = BuildConfig.NAVER_CLIENT_ID,
                 clientSecret = BuildConfig.NAVER_CLIENT_SECRET,
@@ -42,19 +43,19 @@ class NaverOAuthManager
         /**
          * 현재 저장된 액세스 토큰을 가져옵니다.
          */
-        fun getAccessToken(): String? = NaverIdLoginSDK.getAccessToken()
+        fun getAccessToken(): String? = NidOAuth.getAccessToken()
 
         /**
          * 로그아웃 처리를 수행합니다 (로컬 토큰 삭제).
          */
         fun logout() {
-            NaverIdLoginSDK.logout(
-                object : com.navercorp.nid.oauth.util.NidOAuthCallback {
+            NidOAuth.logout(
+                object : NidOAuthCallback {
                     override fun onSuccess() = Unit
 
                     override fun onFailure(
                         errorCode: String,
-                        message: String,
+                        errorDesc: String,
                     ) = Unit
                 },
             )

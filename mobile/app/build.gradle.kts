@@ -131,4 +131,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.coil.compose)
     ksp(libs.hilt.compiler)
+    implementation("com.google.mediapipe:tasks-genai:0.10.27") {
+        exclude(group = "com.google.protobuf", module = "protobuf-javalite")
+    }
 }

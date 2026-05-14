@@ -17,7 +17,7 @@ import javax.inject.Singleton
 class AndroidAudioPlayer
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : AudioPlayer {
         private var mediaPlayer: MediaPlayer? = null
         private var tempAudioFile: File? = null

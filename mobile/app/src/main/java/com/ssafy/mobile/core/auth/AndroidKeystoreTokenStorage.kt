@@ -17,7 +17,7 @@ import javax.inject.Inject
 class AndroidKeystoreTokenStorage
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : TokenStorage {
         companion object {
             private const val PREFS_NAME = "secure_token_prefs"

@@ -21,7 +21,7 @@ private val Context.translationModeDataStore: DataStore<Preferences> by preferen
 class DataStoreTranslationModeRepository
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : TranslationModeRepository {
         override val translationMode: Flow<TranslationMode> =
             context.translationModeDataStore.data

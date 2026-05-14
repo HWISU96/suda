@@ -11,10 +11,14 @@ import static org.mockito.Mockito.when;
 import com.ssafy.backend.domain.comms.service.ClovaSttClient;
 import com.ssafy.backend.domain.comms.service.ClovaTtsClient;
 import com.ssafy.backend.domain.comms.service.SignLanguageCorrectionClient;
+import com.ssafy.backend.domain.translation.dto.SignToSpeechRequestDto;
+import com.ssafy.backend.domain.translation.dto.SignToSpeechResponseDto;
 import com.ssafy.backend.domain.translation.dto.SpeechToTextResponseDto;
 import com.ssafy.backend.domain.translation.exception.TranslationErrorCode;
 import com.ssafy.backend.global.exception.BusinessException;
 import java.io.IOException;
+import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -173,6 +177,90 @@ class TranslationServiceImplTest {
     assertThat(response.locale()).isEqualTo("ko-KR");
     verify(clovaSttClient).transcribe(any(MultipartFile.class), eq("ko-KR"), eq("audio/wav"));
     verifyNoInteractions(signLanguageCorrectionClient, clovaTtsClient);
+  }
+
+  @Test
+  @DisplayName("수어 단어를 보정하고 TTS 음성을 Base64로 반환한다")
+  void translateSignToSpeechReturnsCorrectedTextAndAudio() {
+    SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마", "해보다"), null, true);
+    byte[] audioBytes = new byte[] {1, 2, 3};
+    when(signLanguageCorrectionClient.correct("[엄마, 해보다]")).thenReturn("엄마 해봐!");
+    when(clovaTtsClient.synthesize("엄마 해봐!")).thenReturn(audioBytes);
+    when(clovaTtsClient.getAudioMimeType()).thenReturn("audio/mpeg");
+
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(request);
+
+    assertThat(response.originalWords()).containsExactly("엄마", "해보다");
+    assertThat(response.correctedText()).isEqualTo("엄마 해봐!");
+    assertThat(response.audioBase64()).isEqualTo(Base64.getEncoder().encodeToString(audioBytes));
+    assertThat(response.audioMimeType()).isEqualTo("audio/mpeg");
+    assertThat(response.corrected()).isTrue();
+    verify(signLanguageCorrectionClient).correct("[엄마, 해보다]");
+    verify(clovaTtsClient).synthesize("엄마 해봐!");
+    verify(clovaTtsClient).getAudioMimeType();
+    verifyNoInteractions(clovaSttClient);
+  }
+
+  @Test
+  @DisplayName("TTS 요청값이 없으면 기본으로 음성을 생성한다")
+  void translateSignToSpeechRequestsTtsByDefault() {
+    SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("안녕"), "ko-KR", null);
+    byte[] audioBytes = new byte[] {4, 5, 6};
+    when(signLanguageCorrectionClient.correct("[안녕]")).thenReturn("안녕");
+    when(clovaTtsClient.synthesize("안녕")).thenReturn(audioBytes);
+    when(clovaTtsClient.getAudioMimeType()).thenReturn("audio/mpeg");
+
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(request);
+
+    assertThat(response.correctedText()).isEqualTo("안녕");
+    assertThat(response.audioBase64()).isEqualTo(Base64.getEncoder().encodeToString(audioBytes));
+    assertThat(response.audioMimeType()).isEqualTo("audio/mpeg");
+    assertThat(response.corrected()).isFalse();
+    verify(clovaTtsClient).synthesize("안녕");
+  }
+
+  @Test
+  @DisplayName("TTS 요청값이 false이면 문장 보정만 수행한다")
+  void translateSignToSpeechSkipsTtsWhenRequestTtsIsFalse() {
+    SignToSpeechRequestDto request =
+        new SignToSpeechRequestDto(List.of("엄마", "해보다"), "ko-KR", false);
+    when(signLanguageCorrectionClient.correct("[엄마, 해보다]")).thenReturn("엄마 해봐!");
+
+    SignToSpeechResponseDto response = translationService.translateSignToSpeech(request);
+
+    assertThat(response.correctedText()).isEqualTo("엄마 해봐!");
+    assertThat(response.audioBase64()).isNull();
+    assertThat(response.audioMimeType()).isNull();
+    assertThat(response.corrected()).isTrue();
+    verify(signLanguageCorrectionClient).correct("[엄마, 해보다]");
+    verifyNoInteractions(clovaTtsClient, clovaSttClient);
+  }
+
+  @Test
+  @DisplayName("수어 문맥 보정 실패는 보정 실패 오류로 처리한다")
+  void translateSignToSpeechMapsCorrectionFailure() {
+    SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마"), "ko-KR", true);
+    when(signLanguageCorrectionClient.correct("[엄마]"))
+        .thenThrow(new IllegalStateException("correction failed"));
+
+    assertTranslationError(
+        () -> translationService.translateSignToSpeech(request),
+        TranslationErrorCode.SIGN_CORRECTION_FAILED);
+    verifyNoInteractions(clovaTtsClient, clovaSttClient);
+  }
+
+  @Test
+  @DisplayName("TTS 실패는 음성 합성 실패 오류로 처리한다")
+  void translateSignToSpeechMapsTtsFailure() {
+    SignToSpeechRequestDto request = new SignToSpeechRequestDto(List.of("엄마"), "ko-KR", true);
+    when(signLanguageCorrectionClient.correct("[엄마]")).thenReturn("엄마");
+    when(clovaTtsClient.synthesize("엄마")).thenThrow(new IllegalStateException("tts failed"));
+
+    assertTranslationError(
+        () -> translationService.translateSignToSpeech(request),
+        TranslationErrorCode.TEXT_TO_SPEECH_FAILED);
+    verify(clovaTtsClient).synthesize("엄마");
+    verifyNoInteractions(clovaSttClient);
   }
 
   private MockMultipartFile wavAudio(String contentType) {

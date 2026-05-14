@@ -4,9 +4,11 @@ package com.ssafy.mobile.feature.sign.presentation
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.YuvImage
 import android.os.SystemClock
 import android.util.Size
@@ -56,7 +58,7 @@ internal fun bindCameraUseCases(
     settings: CameraAnalysisSettings = CameraAnalysisSettings(),
     onFrameAvailable: (YuvAnalysisFrame) -> Unit,
 ): CameraBinding {
-    val targetRotation = previewView.display?.rotation ?: Surface.ROTATION_0
+    val targetRotation = previewView.display?.rotation ?: Surface.ROTATION_90
     val previewUseCase = createPreviewUseCase(previewView, targetRotation, settings)
     val cameraConfig = selectCamera(cameraProvider)
     val analysisUseCase =
@@ -228,7 +230,7 @@ private fun ImageProxy.toUprightBitmap(mirrorAnalysisInput: Boolean): Bitmap {
         } else {
             rotated
         }
-    return mirrored.centerCropToAspectRatio(LANDSCAPE_ASPECT_RATIO)
+    return mirrored.fitCenterToAspectRatio(LANDSCAPE_ASPECT_RATIO)
 }
 
 private fun ImageProxy.toNv21(): ByteArray {
@@ -317,28 +319,32 @@ private fun Bitmap.mirrorHorizontally(): Bitmap {
     return mirrored
 }
 
-private fun Bitmap.centerCropToAspectRatio(targetAspectRatio: Float): Bitmap {
-    val currentAspectRatio = width.toFloat() / height.toFloat()
-    val cropWidth: Int
-    val cropHeight: Int
+private fun Bitmap.fitCenterToAspectRatio(targetAspectRatio: Float): Bitmap {
+    val outputWidth: Int
+    val outputHeight: Int
 
-    if (currentAspectRatio > targetAspectRatio) {
-        cropHeight = height
-        cropWidth = (height * targetAspectRatio).toInt().coerceAtMost(width)
+    if (targetAspectRatio >= 1f) {
+        outputWidth = width
+        outputHeight = (width / targetAspectRatio).toInt().coerceAtLeast(1)
     } else {
-        cropWidth = width
-        cropHeight = (width / targetAspectRatio).toInt().coerceAtMost(height)
+        outputHeight = height
+        outputWidth = (height * targetAspectRatio).toInt().coerceAtLeast(1)
     }
 
-    if (cropWidth == width && cropHeight == height) return this
-
-    val left = (width - cropWidth) / 2
-    val top = (height - cropHeight) / 2
-    val cropped = Bitmap.createBitmap(this, left, top, cropWidth, cropHeight)
-    if (cropped != this) {
+    val canvasBitmap = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(canvasBitmap)
+    val srcRect = Rect(0, 0, width, height)
+    val scale = minOf(outputWidth.toFloat() / width, outputHeight.toFloat() / height)
+    val drawnWidth = width * scale
+    val drawnHeight = height * scale
+    val left = (outputWidth - drawnWidth) / 2f
+    val top = (outputHeight - drawnHeight) / 2f
+    val dstRect = RectF(left, top, left + drawnWidth, top + drawnHeight)
+    canvas.drawBitmap(this, srcRect, dstRect, null)
+    if (canvasBitmap != this) {
         recycle()
     }
-    return cropped
+    return canvasBitmap
 }
 
 private const val NANOS_PER_MILLIS = 1_000_000L

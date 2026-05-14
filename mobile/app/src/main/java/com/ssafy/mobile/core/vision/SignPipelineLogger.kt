@@ -145,7 +145,15 @@ class SignPipelineLogger(
         gloss: String,
         confidence: Float,
     ) {
-        log("Prediction emitted. gloss=$gloss, confidence=$confidence")
+        log("👉 Detected: $gloss (Confidence: ${confidence.format()})")
+    }
+
+    fun logUtterance(
+        glosses: List<String>,
+        sentenceType: String,
+    ) {
+        val sentence = glosses.joinToString(" ")
+        log("✨ === 최종 문장: $sentence ($sentenceType) === ✨")
     }
 
     fun logNoHandsDetected() {

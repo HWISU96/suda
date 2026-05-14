@@ -21,9 +21,9 @@ data class CameraAnalysisSettings(
     }
 
     companion object {
-        const val DEFAULT_TARGET_WIDTH = 960
-        const val DEFAULT_TARGET_HEIGHT = 540
-        const val DEFAULT_TARGET_FPS = 15
+        const val DEFAULT_TARGET_WIDTH = 1920
+        const val DEFAULT_TARGET_HEIGHT = 1080
+        const val DEFAULT_TARGET_FPS = 30
         const val DEFAULT_ANALYSIS_FRAME_INTERVAL = 1
         const val DEFAULT_MIRROR_ANALYSIS_INPUT = false
     }

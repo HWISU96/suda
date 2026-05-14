@@ -9,23 +9,17 @@
 
 package com.ssafy.mobile.feature.sign.presentation
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,16 +39,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -62,6 +56,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ssafy.mobile.core.vision.landmark.LandmarkFrameResult
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -118,6 +113,7 @@ fun SignDebugRoute(
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod")
 private fun SignDebugScreen(
     uiState: SignDebugUiState,
     onStart: () -> Unit,
@@ -141,12 +137,12 @@ private fun SignDebugScreen(
     onOpenLlmDebug: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ForceLandscapeOrientationEffect()
+    // 세로 모드(Portrait)를 유지하여 카메라 센서가 1080x1920 원본 비율을 유지하도록 합니다.
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
     ) { paddingValues ->
-        Row(
+        Column(
             modifier =
                 Modifier
                     .padding(paddingValues)
@@ -156,26 +152,16 @@ private fun SignDebugScreen(
                             colors = listOf(Color(0xFF111827), Color(0xFF020617)),
                         ),
                     ).padding(2.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            BoxWithConstraints(
+            Box(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .fillMaxHeight(),
+                        .fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                val cameraModifier =
-                    if (maxWidth.value / maxHeight.value > DEBUG_CAMERA_ASPECT_RATIO) {
-                        Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(DEBUG_CAMERA_ASPECT_RATIO)
-                    } else {
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(DEBUG_CAMERA_ASPECT_RATIO)
-                    }
+                val cameraModifier = Modifier.fillMaxSize()
 
                 SignRecognitionScreen(
                     isSessionActive = uiState.isRunning,
@@ -186,13 +172,115 @@ private fun SignDebugScreen(
                     onCameraMetricsChanged = onCameraMetrics,
                     modifier = cameraModifier,
                 )
+
+                var displayWord by remember { mutableStateOf<String?>(null) }
+                var showStartPrompt by remember { mutableStateOf(false) }
+
+                LaunchedEffect(uiState.currentGloss, uiState.confidence) {
+                    if (uiState.currentGloss != "-" && uiState.currentGloss != "none") {
+                        val confidenceText = formatPercent(uiState.confidence)
+                        displayWord = "인식됨: ${uiState.currentGloss} ($confidenceText)"
+                        delay(2000L) // 2초 유지
+                        displayWord = null
+                    }
+                }
+
+                LaunchedEffect(uiState.hasHands) {
+                    if (uiState.hasHands) {
+                        showStartPrompt = true
+                        delay(1000L) // 1초 유지
+                        showStartPrompt = false
+                    } else {
+                        showStartPrompt = false
+                    }
+                }
+
+                if (uiState.isRunning) {
+                    val textToShow =
+                        when {
+                            displayWord != null -> displayWord
+                            !uiState.hasHands -> "카메라에 손을 보여주세요"
+                            showStartPrompt -> "지금부터 수어를 시작하세요! \uD83E\uDD1F"
+                            else -> null
+                        }
+
+                    if (textToShow != null) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 16.dp)
+                                    .background(
+                                        color = Color(0xCC000000),
+                                        shape = RoundedCornerShape(12.dp),
+                                    ).padding(
+                                        horizontal = 20.dp,
+                                        vertical = 10.dp,
+                                    ),
+                        ) {
+                            val textColor =
+                                when {
+                                    displayWord != null -> Color(0xFF38BDF8) // 하늘색 (인식됨)
+                                    !uiState.hasHands -> Color(0xFF94A3B8) // 회색 (대기중)
+                                    else -> Color(0xFF4ADE80) // 연두색 (시작 안내)
+                                }
+
+                            Text(
+                                text = textToShow,
+                                color = textColor,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+
+                if (uiState.isRunning) {
+                    val leftHandStatus = if (uiState.leftHandLandmarkCount > 0) "✅" else "❌"
+                    val rightHandStatus = if (uiState.rightHandLandmarkCount > 0) "✅" else "❌"
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .padding(top = 16.dp, start = 16.dp)
+                                .background(
+                                    color = Color(0x99000000),
+                                    shape = RoundedCornerShape(8.dp),
+                                ).padding(12.dp),
+                    ) {
+                        Column {
+                            Text(
+                                text = "왼손 인식: $leftHandStatus",
+                                color =
+                                    if (uiState.leftHandLandmarkCount > 0) {
+                                        Color(0xFF4ADE80)
+                                    } else {
+                                        Color(0xFFF87171)
+                                    },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "오른손 인식: $rightHandStatus",
+                                color =
+                                    if (uiState.rightHandLandmarkCount > 0) {
+                                        Color(0xFF4ADE80)
+                                    } else {
+                                        Color(0xFFF87171)
+                                    },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
             }
 
             Column(
                 modifier =
                     Modifier
-                        .width(220.dp)
-                        .fillMaxHeight()
+                        .fillMaxWidth()
+                        .height(300.dp)
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 1.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -242,21 +330,7 @@ private fun SignDebugScreen(
     }
 }
 
-@Composable
-private fun ForceLandscapeOrientationEffect() {
-    val activity = LocalContext.current.findActivity()
-
-    DisposableEffect(activity) {
-        if (activity == null) {
-            onDispose { }
-        } else {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            onDispose {
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            }
-        }
-    }
-}
+// ForceLandscapeOrientationEffect removed
 
 @Composable
 private fun CompactDebugHeader(
@@ -834,8 +908,8 @@ private fun TuningCard(
         }
         Text(
             text =
-                "기본값: 640x480, 15 FPS, " +
-                    "분석 간격 1, 시퀀스 30, 임계값 0.80",
+                "기본값: 1920x1080, 30 FPS, " +
+                    "분석 간격 1, 시퀀스 30, 임계값 0.75",
             modifier = Modifier.padding(top = 6.dp),
             color = Color(0xFFCBD5E1),
             style = MaterialTheme.typography.bodySmall,
@@ -952,14 +1026,5 @@ private fun formatDecimal(value: Double): String = String.format(Locale.US, "%.1
 
 private fun formatPercent(value: Float): String = String.format(Locale.US, "%.1f%%", value * 100f)
 
-private fun Context.findActivity(): Activity? {
-    var currentContext = this
-    while (currentContext is ContextWrapper) {
-        if (currentContext is Activity) return currentContext
-        currentContext = currentContext.baseContext
-    }
-    return null
-}
-
 private const val MILLIS_PER_SECOND = 1_000L
-private const val DEBUG_CAMERA_ASPECT_RATIO = 16f / 9f
+private const val DEBUG_CAMERA_ASPECT_RATIO = 9f / 16f

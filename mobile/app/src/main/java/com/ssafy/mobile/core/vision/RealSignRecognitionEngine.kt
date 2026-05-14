@@ -7,6 +7,7 @@ import com.ssafy.mobile.core.model.SignRecognitionEvent
 import com.ssafy.mobile.core.model.SignRecognitionMetrics
 import com.ssafy.mobile.core.vision.feature.LandmarkFeatureEncoder
 import com.ssafy.mobile.core.vision.feature.LandmarkFeatureFrame
+import com.ssafy.mobile.core.vision.feature.LandmarkFeatureNormalizeMode
 import com.ssafy.mobile.core.vision.feature.SignFeatureSpec
 import com.ssafy.mobile.core.vision.feature.SignSequenceBuffer
 import com.ssafy.mobile.core.vision.inference.FakeSignInferenceAdapter
@@ -27,7 +28,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 class RealSignRecognitionEngine(
-    private val featureEncoder: LandmarkFeatureEncoder = LandmarkFeatureEncoder(),
+    private val featureEncoder: LandmarkFeatureEncoder =
+        LandmarkFeatureEncoder(
+            normalizeMode = LandmarkFeatureNormalizeMode.RAW,
+        ),
     private var sequenceBuffer: SignSequenceBuffer = SignSequenceBuffer(),
     private val inferenceAdapter: SignInferenceAdapter = FakeSignInferenceAdapter(),
     private val wordSpottingScanner: WordSpottingScanner = NoOpWordSpottingScanner,
@@ -40,7 +44,10 @@ class RealSignRecognitionEngine(
         inferenceAdapter: SignInferenceAdapter,
         wordSpottingScanner: WordSpottingScanner,
     ) : this(
-        featureEncoder = LandmarkFeatureEncoder(),
+        featureEncoder =
+            LandmarkFeatureEncoder(
+                normalizeMode = LandmarkFeatureNormalizeMode.RAW,
+            ),
         sequenceBuffer = SignSequenceBuffer(),
         inferenceAdapter = inferenceAdapter,
         wordSpottingScanner = wordSpottingScanner,
@@ -278,7 +285,7 @@ class RealSignRecognitionEngine(
 
         missingHandFrames += 1
         if (missingHandFrames <= MAX_MISSING_HAND_FRAMES) {
-            processFeatureFrame(frame)
+            frame.normalizedEyebrowGap()?.let(::addNeutralEyebrowGap)
             return
         }
 
@@ -307,6 +314,7 @@ class RealSignRecognitionEngine(
             } else {
                 DECLARATIVE_SENTENCE_TYPE
             }
+        logger.logUtterance(glosses, sentenceType)
         _events.tryEmit(
             SignRecognitionEvent.Utterance(
                 glosses = glosses,

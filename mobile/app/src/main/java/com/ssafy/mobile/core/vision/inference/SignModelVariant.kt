@@ -15,6 +15,6 @@ enum class SignModelVariant(
     ;
 
     companion object {
-        val DEFAULT = FLOAT32
+        val DEFAULT = FLOAT16
     }
 }

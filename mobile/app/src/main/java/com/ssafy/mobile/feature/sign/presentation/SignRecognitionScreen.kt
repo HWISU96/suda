@@ -50,7 +50,6 @@ import kotlinx.coroutines.delay
 private const val DEBUG_OVERLAY_BACKGROUND_ALPHA = 0.72f
 private const val FPS_SAMPLE_INTERVAL_MILLIS = 1_000L
 private const val DEBUG_OVERLAY_UPDATE_INTERVAL_MILLIS = 100L
-private const val FRONT_CAMERA_PREVIEW_IS_MIRRORED = true
 private val DEBUG_OVERLAY_BACKGROUND = Color.Black.copy(alpha = DEBUG_OVERLAY_BACKGROUND_ALPHA)
 private val DEBUG_OVERLAY_TEXT_COLOR = Color.White
 
@@ -197,7 +196,6 @@ private fun CameraPreviewContent(
         frameCount = frameCount,
         fps = fps,
         landmarkFrame = latestLandmarkFrame,
-        analysisImageSize = latestAnalysisImageSize,
         analysisBitmap = latestAnalysisBitmap,
         showDebugOverlay = showDebugOverlay,
         modifier = modifier,
@@ -353,7 +351,6 @@ private fun CameraPreviewBox(
     frameCount: Long,
     fps: Double,
     landmarkFrame: LandmarkFrameResult?,
-    analysisImageSize: IntSize,
     analysisBitmap: Bitmap?,
     showDebugOverlay: Boolean,
     modifier: Modifier = Modifier,
@@ -375,15 +372,6 @@ private fun CameraPreviewBox(
                 bitmap = analysisBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        if (showDebugOverlay) {
-            LandmarkDebugOverlay(
-                frame = landmarkFrame,
-                analysisImageSize = analysisImageSize,
-                mirrorHorizontally = analysisBitmap == null && FRONT_CAMERA_PREVIEW_IS_MIRRORED,
                 modifier = Modifier.fillMaxSize(),
             )
         }

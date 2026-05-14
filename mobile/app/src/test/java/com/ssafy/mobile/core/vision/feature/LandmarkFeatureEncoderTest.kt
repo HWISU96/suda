@@ -14,7 +14,7 @@ import org.junit.Test
 class LandmarkFeatureEncoderTest {
     @Test
     fun encodesLandmarkFrameToFixedLengthFeature() {
-        val feature = LandmarkFeatureEncoder().encode(createFrame()).values
+        val feature = createRawEncoder().encode(createFrame()).values
 
         assertEquals(SignModelContract.FEATURE_DIMENSION, feature.size)
         assertEquals(LEFT_HAND_X_NORMALIZED, feature[SignFeatureSpec.LEFT_HAND_OFFSET], FLOAT_DELTA)
@@ -28,7 +28,7 @@ class LandmarkFeatureEncoderTest {
 
     @Test
     fun encodesZeroPaddedRawHandLandmarks() {
-        val encoder = LandmarkFeatureEncoder(isHandForwardFillEnabled = false)
+        val encoder = createRawEncoder(isHandForwardFillEnabled = false)
         encoder.encode(createFrame())
 
         val feature =
@@ -45,7 +45,7 @@ class LandmarkFeatureEncoderTest {
 
     @Test
     fun forwardFillsMissingHandLandmarksFromPreviousFrame() {
-        val encoder = LandmarkFeatureEncoder(isHandForwardFillEnabled = true)
+        val encoder = createRawEncoder(isHandForwardFillEnabled = true)
         encoder.encode(createFrame())
 
         val feature =
@@ -67,7 +67,7 @@ class LandmarkFeatureEncoderTest {
 
     @Test
     fun forwardFillsMissingPoseLandmarksFromPreviousFrame() {
-        val encoder = LandmarkFeatureEncoder()
+        val encoder = createRawEncoder()
         encoder.encode(createFrame())
 
         val feature =
@@ -84,7 +84,7 @@ class LandmarkFeatureEncoderTest {
 
     @Test
     fun resetClearsForwardFillState() {
-        val encoder = LandmarkFeatureEncoder()
+        val encoder = createRawEncoder()
         encoder.encode(createFrame())
         encoder.reset()
 
@@ -110,6 +110,12 @@ class LandmarkFeatureEncoderTest {
         assertEquals(SignModelContract.FEATURE_DIMENSION, feature.size)
         assertTrue(feature.all { it == 0f })
     }
+
+    private fun createRawEncoder(isHandForwardFillEnabled: Boolean = true): LandmarkFeatureEncoder =
+        LandmarkFeatureEncoder(
+            isHandForwardFillEnabled = isHandForwardFillEnabled,
+            normalizeMode = LandmarkFeatureNormalizeMode.RAW,
+        )
 
     private fun createFrame(
         pose: List<LandmarkPoint> = createPoseLandmarks(),

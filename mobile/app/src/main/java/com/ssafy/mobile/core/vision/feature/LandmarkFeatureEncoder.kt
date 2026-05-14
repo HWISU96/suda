@@ -8,8 +8,8 @@ import com.ssafy.mobile.core.vision.landmark.LandmarkPoint
 import kotlin.math.sqrt
 
 class LandmarkFeatureEncoder(
-    val isHandForwardFillEnabled: Boolean = false,
-    private val normalizeMode: LandmarkFeatureNormalizeMode = LandmarkFeatureNormalizeMode.RAW,
+    val isHandForwardFillEnabled: Boolean = true,
+    private val normalizeMode: LandmarkFeatureNormalizeMode = LandmarkFeatureNormalizeMode.SHOULDER,
 ) {
     private var previousPose: List<LandmarkPoint>? = null
     private var previousLeftHand: List<LandmarkPoint>? = null
@@ -176,7 +176,7 @@ class LandmarkFeatureEncoder(
             return FloatArray(SignFeatureSpec.HAND_FACE_DISTANCE_COUNT)
         }
 
-        val anchors = SignFeatureSpec.FACE_ANCHOR_INDICES.map { index -> faceLandmarks[index] }
+        val faceAnchors = SignFeatureSpec.FACE_ANCHOR_INDICES.map { index -> faceLandmarks[index] }
         val values = FloatArray(SignFeatureSpec.HAND_FACE_DISTANCE_COUNT)
         var offset = 0
         offset =
@@ -184,13 +184,13 @@ class LandmarkFeatureEncoder(
                 output = values,
                 offset = offset,
                 handLandmarks = leftHand,
-                faceAnchors = anchors,
+                faceAnchors = faceAnchors,
             )
         writeHandFaceDistances(
             output = values,
             offset = offset,
             handLandmarks = rightHand,
-            faceAnchors = anchors,
+            faceAnchors = faceAnchors,
         )
         return values
     }
@@ -202,7 +202,8 @@ class LandmarkFeatureEncoder(
         faceAnchors: List<LandmarkPoint>,
     ): Int {
         var currentOffset = offset
-        if (!handLandmarks.hasIndices(SignFeatureSpec.HAND_TIP_INDICES)) {
+        val isEmptyHand = handLandmarks.isEmpty() || handLandmarks.first() == ZERO_POINT
+        if (isEmptyHand || !handLandmarks.hasIndices(SignFeatureSpec.HAND_TIP_INDICES)) {
             return currentOffset + SignFeatureSpec.HAND_FACE_DISTANCE_PER_HAND
         }
 

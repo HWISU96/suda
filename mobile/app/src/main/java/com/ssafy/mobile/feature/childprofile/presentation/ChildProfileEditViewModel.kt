@@ -115,7 +115,6 @@ class ChildProfileEditViewModel
                     withContext(Dispatchers.IO) {
                         childProfileRepository.deleteChildProfile(childId)
 
-                        // API 성공 후, 현재 선택된 아이라면 클리어
                         if (activeChildStorage.getActiveChildId() == childId) {
                             activeChildStorage.clearActiveChildId()
                         }
@@ -193,7 +192,7 @@ class ChildProfileEditViewModel
                     }
                     else ->
                         return BirthDateValidationResult(
-                            error = "생년월일 형식이 올바르지 않습니다. (예: 2020-05-01)",
+                            error = "생년월일 형식이 올바르지 않습니다.",
                         )
                 }
 

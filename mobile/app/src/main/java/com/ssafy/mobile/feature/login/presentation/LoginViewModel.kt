@@ -9,6 +9,7 @@ import com.ssafy.mobile.core.auth.AuthSessionManager
 import com.ssafy.mobile.core.auth.AuthState
 import com.ssafy.mobile.core.auth.TokenStorage
 import com.ssafy.mobile.core.session.ActiveChildStorage
+import com.ssafy.mobile.core.ui.components.AuthMessageType
 import com.ssafy.mobile.feature.learning.data.repository.LearningQuizAnswerSubmissionQueueSyncer
 import com.ssafy.mobile.feature.login.data.dto.LoginResponseDto
 import com.ssafy.mobile.feature.login.data.oauth.NaverOAuthManager
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @HiltViewModel
+@Suppress("TooManyFunctions")
 class LoginViewModel
     @Inject
     constructor(
@@ -60,11 +62,13 @@ class LoginViewModel
         fun onEmailChanged(value: String) {
             _email.value = value
             _emailError.value = null
+            clearError()
         }
 
         fun onPasswordChanged(value: String) {
             _password.value = value
             _passwordError.value = null
+            clearError()
         }
 
         fun initializeNaverSdk(context: Context) {
@@ -89,12 +93,13 @@ class LoginViewModel
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: LoginException) {
-                    showLoginError(e.message ?: "로그인에 실패했습니다.")
+                    showLoginError(e.toAuthMessageType())
                 } catch (e: IOException) {
                     Log.e(TAG, "Login network error", e)
-                    showLoginError("네트워크 연결을 확인해 주세요.")
+                    showLoginError(AuthMessageType.Network)
                 } catch (e: IllegalStateException) {
-                    showLoginError(e.message ?: "알 수 없는 오류가 발생했습니다.")
+                    Log.e(TAG, "Login failed with invalid state", e)
+                    showLoginError()
                 }
             }
         }
@@ -102,7 +107,7 @@ class LoginViewModel
         fun loginWithNaverToken(providerAccessToken: String) {
             if (_uiState.value is LoginUiState.Loading) return
             if (providerAccessToken.isBlank()) {
-                showLoginError("네이버 인증 토큰이 유효하지 않습니다.")
+                showLoginError(AuthMessageType.InvalidProviderToken)
                 return
             }
 
@@ -118,18 +123,20 @@ class LoginViewModel
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: LoginException) {
-                    showLoginError(e.message ?: "네이버 로그인에 실패했습니다.")
+                    showLoginError(e.toAuthMessageType())
                 } catch (e: IOException) {
                     Log.e(TAG, "Naver login network error", e)
-                    showLoginError("네트워크 연결을 확인해 주세요.")
+                    showLoginError(AuthMessageType.Network)
                 } catch (e: IllegalStateException) {
-                    showLoginError(e.message ?: "네이버 로그인 중 오류가 발생했습니다.")
+                    Log.e(TAG, "Naver login failed with invalid state", e)
+                    showLoginError()
                 }
             }
         }
 
         fun onNaverLoginError(message: String) {
-            showLoginError(message)
+            Log.e(TAG, "Naver login failed. message=$message")
+            showLoginError()
         }
 
         private suspend fun handleLoginSuccess(response: LoginResponseDto) {
@@ -145,11 +152,11 @@ class LoginViewModel
                 throw e
             } catch (e: GeneralSecurityException) {
                 Log.e(TAG, "Token storage failed", e)
-                showLoginError("로그인 정보를 저장하지 못했습니다. 다시 시도해 주세요.")
+                showLoginError()
                 return
             } catch (e: IllegalArgumentException) {
                 Log.e(TAG, "Token storage failed", e)
-                showLoginError("로그인 정보를 저장하지 못했습니다. 다시 시도해 주세요.")
+                showLoginError()
                 return
             }
 
@@ -160,7 +167,7 @@ class LoginViewModel
 
             val hasActiveChild = activeChildId != null
 
-            // 인증 상태 업데이트
+            // 로그인 성공 후 전역 인증 상태를 최신 상태로 맞춘다.
             val authState =
                 if (activeChildId != null) {
                     AuthState.AuthenticatedWithChild(activeChildId)
@@ -173,8 +180,21 @@ class LoginViewModel
             _uiState.value = LoginUiState.Success(hasActiveChild = hasActiveChild)
         }
 
-        private fun showLoginError(message: String) {
-            _uiState.value = LoginUiState.Error(message = message)
+        private fun showLoginError(type: AuthMessageType = AuthMessageType.General) {
+            _uiState.value = LoginUiState.Error(type = type)
+        }
+
+        private fun LoginException.toAuthMessageType(): AuthMessageType =
+            if (cause is IOException) {
+                AuthMessageType.Network
+            } else {
+                AuthMessageType.fromBackendCode(code)
+            }
+
+        private fun clearError() {
+            if (_uiState.value is LoginUiState.Error) {
+                _uiState.value = LoginUiState.Idle
+            }
         }
 
         private fun validateInputs(): Boolean {

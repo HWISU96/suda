@@ -1,5 +1,7 @@
 package com.ssafy.mobile.core.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,6 +21,7 @@ import com.ssafy.mobile.feature.learning.presentation.category.LearningCategoryR
 import com.ssafy.mobile.feature.learning.presentation.wordlist.LearningWordListRoute
 import com.ssafy.mobile.feature.login.presentation.LoginRoute
 import com.ssafy.mobile.feature.mypage.presentation.AccountEditRoute
+import com.ssafy.mobile.feature.mypage.presentation.AppSettingsRoute
 import com.ssafy.mobile.feature.mypage.presentation.MyPageRoute
 import com.ssafy.mobile.feature.quiz.presentation.QuizResultRoute
 import com.ssafy.mobile.feature.quiz.presentation.quizQuestionRoute
@@ -61,37 +64,31 @@ fun MobileNavHost(
                     }
                 },
                 onNavigateToConversation = {
-                    navController.navigate(Screen.Conversation.route) {
+                    navController.navigate(Screen.GuestConversation.route) {
                         popUpTo(Screen.AppEntry.route) { inclusive = true }
                     }
                 },
             )
         }
 
-        composable(Screen.Login.route) {
+        composable(
+            route = Screen.Login.route,
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
+        ) {
             LoginRoute(
                 onNavigateToHome = {
                     val popTarget =
-                        if (navController.previousBackStackEntry?.destination?.route ==
-                            Screen.Conversation.route
-                        ) {
-                            Screen.Conversation.route
-                        } else {
-                            Screen.Login.route
-                        }
+                        navController.loginEntryPopTarget()
                     navController.navigate(Screen.Home.route) {
                         popUpTo(popTarget) { inclusive = true }
                     }
                 },
                 onNavigateToChildSelect = {
                     val popTarget =
-                        if (navController.previousBackStackEntry?.destination?.route ==
-                            Screen.Conversation.route
-                        ) {
-                            Screen.Conversation.route
-                        } else {
-                            Screen.Login.route
-                        }
+                        navController.loginEntryPopTarget()
                     navController.navigate(Screen.ChildSelect.route) {
                         popUpTo(popTarget) { inclusive = true }
                     }
@@ -103,7 +100,13 @@ fun MobileNavHost(
             )
         }
 
-        composable(Screen.Signup.route) {
+        composable(
+            route = Screen.Signup.route,
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
+        ) {
             SignupRoute(
                 onNavigateToLogin = {
                     navController.popBackStack(Screen.Login.route, inclusive = false)
@@ -269,16 +272,39 @@ fun MobileNavHost(
             )
         }
 
+        composable(Screen.GuestConversation.route) {
+            conversationRoute(
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        launchSingleTop = true
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
         composable(Screen.MyPage.route) {
             MyPageRoute(
+                onNavigateToAppSettings = {
+                    navController.navigate(Screen.AppSettings.route)
+                },
                 onNavigateToAccountEdit = {
                     navController.navigate(Screen.AccountEdit.route)
                 },
                 onLogoutSuccess = {
-                    navController.navigate(Screen.Conversation.route) {
+                    navController.navigate(Screen.GuestConversation.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                         launchSingleTop = true
                     }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Screen.AppSettings.route) {
+            AppSettingsRoute(
+                onNavigateBack = {
+                    navController.popBackStack()
                 },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -420,3 +446,10 @@ fun MobileNavHost(
         }
     }
 }
+
+private fun NavHostController.loginEntryPopTarget(): String =
+    when (previousBackStackEntry?.destination?.route) {
+        Screen.GuestConversation.route -> Screen.GuestConversation.route
+        Screen.Conversation.route -> Screen.Conversation.route
+        else -> Screen.Login.route
+    }

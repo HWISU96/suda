@@ -4,11 +4,29 @@ package com.ssafy.mobile.core.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.ssafy.mobile.R
 
-val SudaFontFamily: FontFamily = FontFamily.Default
+val SudaFontFamily: FontFamily =
+    FontFamily(
+        Font(R.font.pretendard_regular, FontWeight.Normal),
+        Font(R.font.pretendard_medium, FontWeight.Medium),
+        Font(R.font.pretendard_semibold, FontWeight.SemiBold),
+        Font(R.font.pretendard_bold, FontWeight.Bold),
+    )
+
+val SudaFriendlyFontFamily: FontFamily =
+    FontFamily(
+        Font(R.font.gowun_dodum_regular, FontWeight.Normal),
+    )
+
+val SudaPointFontFamily: FontFamily =
+    FontFamily(
+        Font(R.font.jua_regular, FontWeight.Normal),
+    )
 
 val Typography =
     Typography(

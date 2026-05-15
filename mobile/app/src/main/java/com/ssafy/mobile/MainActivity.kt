@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,7 +79,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MobileTheme {
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val appThemeMode by mainViewModel.appThemeMode.collectAsStateWithLifecycle()
+            val systemInDarkTheme = isSystemInDarkTheme()
+
+            MobileTheme(
+                darkTheme = appThemeMode.shouldUseDarkTheme(systemInDarkTheme),
+            ) {
                 val permissionState by permissionHandler.permissionState
                     .collectAsStateWithLifecycle()
 

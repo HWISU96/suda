@@ -40,7 +40,11 @@ sealed class Screen(
 
     data object Conversation : Screen("conversation_route")
 
+    data object GuestConversation : Screen("guest_conversation_route")
+
     data object MyPage : Screen("my_page_route")
+
+    data object AppSettings : Screen("app_settings_route")
 
     data object AccountEdit : Screen("account_edit_route")
 

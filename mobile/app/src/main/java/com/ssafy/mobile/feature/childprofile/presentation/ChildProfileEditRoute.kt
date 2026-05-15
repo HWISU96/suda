@@ -1,18 +1,28 @@
 package com.ssafy.mobile.feature.childprofile.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -24,9 +34,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ssafy.mobile.core.ui.components.AppCard
@@ -111,6 +126,7 @@ private fun ChildProfileEditScreen(
     }
 
     Scaffold(
+        modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             EditTopBar(
@@ -122,10 +138,12 @@ private fun ChildProfileEditScreen(
     ) { padding ->
         Column(
             modifier =
-                modifier
+                Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 24.dp, vertical = 18.dp)
+                    .imePadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (isLoading) {
                 LoadingPlaceholder(modifier = Modifier.weight(1f))
@@ -136,15 +154,32 @@ private fun ChildProfileEditScreen(
                     modifier = Modifier.weight(1f),
                 )
             } else {
-                EditForm(
-                    name = name,
-                    birthDate = birthDate,
-                    isSaving = isSaving,
-                    errorMessage = (uiState as? ChildProfileEditUiState.Error)?.message,
-                    onNameChange = onNameChange,
-                    onBirthDateChange = onBirthDateChange,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    ProfilePreviewCard(
+                        name = name,
+                        isEditMode = isEditMode,
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    EditForm(
+                        name = name,
+                        birthDate = birthDate,
+                        isSaving = isSaving,
+                        errorMessage = (uiState as? ChildProfileEditUiState.Error)?.message,
+                        onNameChange = onNameChange,
+                        onBirthDateChange = onBirthDateChange,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 EditActionButtons(
                     isEditMode = isEditMode,
@@ -181,6 +216,70 @@ private fun EditTopBar(
 }
 
 @Composable
+private fun ProfilePreviewCard(
+    name: String,
+    isEditMode: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = if (isEditMode) "프로필을 다듬어 볼까요?" else "새 프로필을 만들어 볼까요?",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "아이 선택 화면에 보여질 프로필 카드입니다.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Surface(
+            modifier =
+                Modifier
+                    .fillMaxWidth(PROFILE_PREVIEW_WIDTH_FRACTION)
+                    .widthIn(max = 188.dp)
+                    .aspectRatio(1f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            tonalElevation = 2.dp,
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = name.trim().firstOrNull()?.toString() ?: "+",
+                    fontSize = 54.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = name.trim().ifEmpty { "아이 이름" },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun EditForm(
     name: String,
     birthDate: String,
@@ -190,6 +289,7 @@ private fun EditForm(
     onBirthDateChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val focusManager = LocalFocusManager.current
     val isNameError = errorMessage?.contains("이름") == true
     val isBirthDateError =
         errorMessage?.let { message ->
@@ -201,12 +301,18 @@ private fun EditForm(
 
     AppCard(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "아이 정보",
+            text = "기본 정보",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "아이의 이름과 생년월일을 입력해 주세요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
 
         AppTextField(
             value = name,
@@ -217,18 +323,21 @@ private fun EditForm(
             enabled = !isSaving,
             isError = isNameError,
             supportingText = if (isNameError) errorMessage else null,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions =
+                KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                ),
         )
 
-        AppTextField(
-            value = birthDate,
-            onValueChange = onBirthDateChange,
-            label = "생년월일",
-            placeholder = "예: 20200501",
-            modifier = Modifier.fillMaxWidth(),
+        Spacer(modifier = Modifier.height(14.dp))
+
+        BirthDateSlotPicker(
+            birthDate = birthDate,
             enabled = !isSaving,
             isError = isBirthDateError,
             supportingText = if (isBirthDateError) errorMessage else null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            onBirthDateChange = onBirthDateChange,
         )
 
         if (errorMessage != null && !isNameError && !isBirthDateError) {
@@ -248,9 +357,16 @@ private fun EditActionButtons(
     onSave: () -> Unit,
     onDeleteRequest: () -> Unit,
 ) {
+    val saveButtonText =
+        when {
+            isSaving -> "저장 중..."
+            isEditMode -> "프로필 저장"
+            else -> "아이 추가하기"
+        }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         AppPrimaryButton(
-            text = if (isSaving) "저장 중..." else "저장하기",
+            text = saveButtonText,
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
             enabled = !isSaving,
@@ -268,7 +384,7 @@ private fun EditActionButtons(
                         contentColor = MaterialTheme.colorScheme.error,
                     ),
             ) {
-                Text(text = "아이 프로필 삭제하기")
+                Text(text = "아이 프로필 삭제")
             }
         }
     }
@@ -276,10 +392,12 @@ private fun EditActionButtons(
 
 @Composable
 private fun LoadingPlaceholder(modifier: Modifier = Modifier) {
-    AppLoadingIndicator(
+    Box(
         modifier = modifier.fillMaxWidth(),
-        message = "아이 정보를 불러오고 있어요.",
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        AppLoadingIndicator(message = "아이 정보를 불러오고 있어요.")
+    }
 }
 
 @Composable
@@ -313,7 +431,7 @@ private fun DeleteConfirmationDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("아이 프로필 삭제") },
-        text = { Text("정말 이 아이 프로필을 삭제하시겠습니까?\n삭제된 정보는 복구할 수 없습니다.") },
+        text = { Text("정말 이 아이 프로필을 삭제하시겠어요?\n삭제된 정보는 복구할 수 없습니다.") },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
@@ -332,3 +450,5 @@ private fun DeleteConfirmationDialog(
         },
     )
 }
+
+private const val PROFILE_PREVIEW_WIDTH_FRACTION = 0.52f

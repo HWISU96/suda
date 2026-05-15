@@ -89,6 +89,7 @@ data class ConversationUiState(
 fun conversationRoute(
     modifier: Modifier = Modifier,
     onOpenSignDebug: (() -> Unit)? = null,
+    onNavigateToLogin: (() -> Unit)? = null,
     viewModel: ConversationViewModel = hiltViewModel(),
 ) {
     val sessionState by viewModel.sessionState.collectAsStateWithLifecycle()
@@ -154,6 +155,7 @@ fun conversationRoute(
                 onFeedbackReasonConfirmed = viewModel::submitTranslationFeedback,
                 onFeedbackDismissed = viewModel::clearTranslationFeedbackSubmitState,
                 onOpenSignDebug = onOpenSignDebug,
+                onNavigateToLogin = onNavigateToLogin,
             ),
         modifier = modifier,
     )
@@ -167,6 +169,7 @@ private data class ConversationActions(
     val onFeedbackReasonConfirmed: (ChatMessage, TranslationFeedbackReason) -> Unit,
     val onFeedbackDismissed: () -> Unit,
     val onOpenSignDebug: (() -> Unit)?,
+    val onNavigateToLogin: (() -> Unit)?,
 )
 
 private data class TranslationFeedbackSheetUiState(
@@ -207,6 +210,7 @@ private fun ConversationScreen(
                     translationMode = uiState.translationMode,
                     onTranslationModeSelected = actions.onTranslationModeSelected,
                     onOpenSignDebug = actions.onOpenSignDebug,
+                    onNavigateToLogin = actions.onNavigateToLogin,
                 )
                 AppNetworkStatusBanner(isOnline = uiState.isOnline)
                 TranslationModeNotice(text = uiState.translationModeNotice)
@@ -560,6 +564,7 @@ private fun SessionHeader(
     translationMode: TranslationMode,
     onTranslationModeSelected: (TranslationMode) -> Unit,
     onOpenSignDebug: (() -> Unit)?,
+    onNavigateToLogin: (() -> Unit)?,
 ) {
     Column(
         modifier =
@@ -612,6 +617,16 @@ private fun SessionHeader(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                    if (onNavigateToLogin != null) {
+                        TextButton(onClick = onNavigateToLogin) {
+                            Text(
+                                text = "로그인",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
                             )
                         }

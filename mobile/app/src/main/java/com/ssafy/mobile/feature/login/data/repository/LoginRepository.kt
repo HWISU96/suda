@@ -28,13 +28,10 @@ class LoginRepository
                 if (response.isSuccessful) {
                     response.body() ?: throw LoginException("응답 본문이 비어 있습니다.")
                 } else {
-                    val errorMessage =
-                        when (response.code()) {
-                            HTTP_UNAUTHORIZED -> "이메일 또는 비밀번호가 올바르지 않습니다."
-                            HTTP_BAD_REQUEST -> "입력 정보를 확인해 주세요."
-                            else -> "로그인에 실패했습니다. (${response.code()})"
-                        }
-                    throw LoginException(errorMessage)
+                    throw createLoginException(
+                        status = response.code(),
+                        errorBody = response.errorBody()?.string(),
+                    )
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -74,6 +71,29 @@ class LoginRepository
                 throw LoginException("알 수 없는 오류가 발생했습니다.", e)
             }
 
+        private fun createLoginException(
+            status: Int,
+            errorBody: String?,
+        ): LoginException {
+            val problemDetails = parseProblemDetails(errorBody)
+            val defaultMessage =
+                when (status) {
+                    HTTP_UNAUTHORIZED -> "이메일 또는 비밀번호가 올바르지 않습니다."
+                    HTTP_BAD_REQUEST -> "입력 정보를 확인해 주세요."
+                    else -> "로그인에 실패했습니다. ($status)"
+                }
+
+            logProblemDetails("Login failed", status, problemDetails)
+
+            return LoginException(
+                message = defaultMessage,
+                status = problemDetails?.status ?: status,
+                code = problemDetails?.code,
+                traceId = problemDetails?.traceId,
+                instance = problemDetails?.instance,
+            )
+        }
+
         private fun createNaverLoginException(
             status: Int,
             errorBody: String?,
@@ -86,21 +106,10 @@ class LoginRepository
                     else -> "네이버 로그인에 실패했습니다. ($status)"
                 }
 
-            Log.e(
-                TAG,
-                "Naver login failed. " +
-                    "status=$status, " +
-                    "code=${problemDetails?.code}, " +
-                    "traceId=${problemDetails?.traceId}, " +
-                    "instance=${problemDetails?.instance}",
-            )
-
-            val message =
-                problemDetails?.detail?.takeIf { it.isNotBlank() }
-                    ?: defaultMessage
+            logProblemDetails("Naver login failed", status, problemDetails)
 
             return LoginException(
-                message = message,
+                message = defaultMessage,
                 status = problemDetails?.status ?: status,
                 code = problemDetails?.code,
                 traceId = problemDetails?.traceId,
@@ -114,12 +123,27 @@ class LoginRepository
             return try {
                 gson.fromJson(errorBody, ProblemDetailsDto::class.java)
             } catch (e: JsonSyntaxException) {
-                Log.e(TAG, "Failed to parse naver login error body", e)
+                Log.e(TAG, "Failed to parse login error body", e)
                 null
             } catch (e: IllegalStateException) {
-                Log.e(TAG, "Failed to parse naver login error body", e)
+                Log.e(TAG, "Failed to parse login error body", e)
                 null
             }
+        }
+
+        private fun logProblemDetails(
+            prefix: String,
+            status: Int,
+            problemDetails: ProblemDetailsDto?,
+        ) {
+            Log.e(
+                TAG,
+                "$prefix. " +
+                    "status=$status, " +
+                    "code=${problemDetails?.code}, " +
+                    "traceId=${problemDetails?.traceId}, " +
+                    "instance=${problemDetails?.instance}",
+            )
         }
 
         companion object {

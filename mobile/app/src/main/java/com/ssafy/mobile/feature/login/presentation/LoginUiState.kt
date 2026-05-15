@@ -1,5 +1,7 @@
 package com.ssafy.mobile.feature.login.presentation
 
+import com.ssafy.mobile.core.ui.components.AuthMessageType
+
 sealed interface LoginUiState {
     data object Idle : LoginUiState
 
@@ -10,6 +12,6 @@ sealed interface LoginUiState {
     ) : LoginUiState
 
     data class Error(
-        val message: String,
+        val type: AuthMessageType = AuthMessageType.General,
     ) : LoginUiState
 }

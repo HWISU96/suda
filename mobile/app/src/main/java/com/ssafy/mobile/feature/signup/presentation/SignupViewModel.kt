@@ -4,6 +4,7 @@ import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ssafy.mobile.core.ui.components.AuthMessageType
 import com.ssafy.mobile.feature.signup.data.repository.SignupException
 import com.ssafy.mobile.feature.signup.data.repository.SignupRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -69,21 +70,25 @@ class SignupViewModel
         fun onEmailChanged(value: String) {
             _email.value = value
             _emailError.value = null
+            clearError()
         }
 
         fun onPasswordChanged(value: String) {
             _password.value = value
             _passwordError.value = null
+            clearError()
         }
 
         fun onConfirmPasswordChanged(value: String) {
             _confirmPassword.value = value
             _confirmPasswordError.value = null
+            clearError()
         }
 
         fun onNameChanged(value: String) {
             _name.value = value
             _nameError.value = null
+            clearError()
         }
 
         fun signup() {
@@ -106,27 +111,34 @@ class SignupViewModel
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: SignupException) {
-                    _uiState.value =
-                        SignupUiState.Error(
-                            message = e.message ?: "회원가입에 실패했습니다.",
-                        )
+                    val messageType = e.toAuthMessageType()
+                    if (messageType == AuthMessageType.DuplicateEmail) {
+                        _emailError.value = "이미 사용 중인 이메일입니다."
+                    }
+                    showSignupError(messageType)
                 } catch (e: IOException) {
                     Log.e(TAG, "Signup network error", e)
-                    _uiState.value =
-                        SignupUiState.Error(
-                            message = "네트워크 연결을 확인해 주세요.",
-                        )
+                    showSignupError(AuthMessageType.Network)
                 } catch (e: IllegalStateException) {
-                    _uiState.value =
-                        SignupUiState.Error(
-                            message = e.message ?: "알 수 없는 오류가 발생했습니다.",
-                        )
+                    Log.e(TAG, "Signup failed with invalid state", e)
+                    showSignupError()
                 }
             }
         }
 
+        private fun showSignupError(type: AuthMessageType = AuthMessageType.General) {
+            _uiState.value = SignupUiState.Error(type = type)
+        }
+
+        private fun SignupException.toAuthMessageType(): AuthMessageType =
+            if (cause is IOException) {
+                AuthMessageType.Network
+            } else {
+                AuthMessageType.fromBackendCode(code)
+            }
+
         fun clearError() {
-            if (_uiState.value is SignupUiState.Error) {
+            if (_uiState.value is SignupUiState.Error || _uiState.value is SignupUiState.Success) {
                 _uiState.value = SignupUiState.Idle
             }
         }

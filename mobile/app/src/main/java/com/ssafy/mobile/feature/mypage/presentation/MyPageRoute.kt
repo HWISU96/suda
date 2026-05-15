@@ -40,6 +40,7 @@ import java.util.Locale
 
 @Composable
 fun MyPageRoute(
+    onNavigateToAppSettings: () -> Unit,
     onLogoutSuccess: () -> Unit,
     onNavigateToAccountEdit: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,6 +76,7 @@ fun MyPageRoute(
         onDownloadModelClick = viewModel::downloadAiModel,
         onCancelDownloadClick = viewModel::cancelAiModelDownload,
         onDeleteModelClick = { showDeleteModelDialog = true },
+        onAppSettingsClick = onNavigateToAppSettings,
         onAccountEditClick = onNavigateToAccountEdit,
         onLogoutClick = { showLogoutDialog = true },
         modifier = modifier,
@@ -119,6 +121,7 @@ private fun MyPageScreen(
     onDownloadModelClick: () -> Unit,
     onCancelDownloadClick: () -> Unit,
     onDeleteModelClick: () -> Unit,
+    onAppSettingsClick: () -> Unit,
     onAccountEditClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -168,10 +171,8 @@ private fun MyPageScreen(
             )
             MyPageMenuItem(
                 title = "앱 설정",
-                description = "권한, 알림, 학습 환경",
-                onClick = {},
-                enabled = false,
-                badgeText = "준비 중",
+                description = "테마, 권한, 학습 환경",
+                onClick = onAppSettingsClick,
             )
             AiModelManagementCard(
                 state = aiModelState,

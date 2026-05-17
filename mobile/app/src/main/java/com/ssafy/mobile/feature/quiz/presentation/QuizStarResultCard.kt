@@ -2,29 +2,39 @@
 
 package com.ssafy.mobile.feature.quiz.presentation
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.ssafy.mobile.core.ui.components.AppBadge
-import com.ssafy.mobile.core.ui.components.AppBadgeTone
+import com.ssafy.mobile.R
 import com.ssafy.mobile.core.ui.components.AppCard
 import com.ssafy.mobile.feature.quiz.domain.model.QuizAnswer
-import kotlinx.coroutines.delay
 
 @Composable
 internal fun QuizStarResultCard(
@@ -32,147 +42,190 @@ internal fun QuizStarResultCard(
     remainingRetryCount: Int,
     modifier: Modifier = Modifier,
 ) {
-    val resultText = answer.toStarResultText(remainingRetryCount)
-    val targetStar = answer.star?.coerceIn(0, MAX_STAR) ?: 0
-    var visibleStar by remember(answer.questionId, answer.attemptCount) { mutableIntStateOf(0) }
-
     QuizFeedbackEffects(
         eventKey = answer.feedbackEventKey(),
         cue = answer.toFeedbackCue(),
     )
 
-    LaunchedEffect(answer.questionId, answer.attemptCount, targetStar) {
-        visibleStar = 0
-        repeat(targetStar) { index ->
-            delay(STAR_REVEAL_DELAY_MILLIS)
-            visibleStar = index + 1
-        }
-    }
-
     AppCard(
         modifier = modifier.fillMaxWidth(),
     ) {
+        val eventKey = answer.feedbackEventKey()
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            AppBadge(
-                text = answer.star.toResultBadgeText(),
-                tone = answer.star.toResultBadgeTone(),
+            StarRewardBurst(
+                eventKey = eventKey,
+                isCorrect = answer.isCorrect == true,
             )
-            Crossfade(
-                targetState = visibleStar,
-                label = "quizStarReveal",
-            ) { animatedStar ->
-                Text(
-                    text = animatedStar.toStarDisplay(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = answer.star.starResultColor(),
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                )
-            }
             Text(
-                text = resultText.title,
-                style = MaterialTheme.typography.titleMedium,
+                text = answer.toRewardTitle(remainingRetryCount),
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
-            )
-            Text(
-                text = resultText.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            AppBadge(
-                text = "인식 결과: ${answer.recognizedTextLabel()}",
-                tone = AppBadgeTone.Neutral,
             )
         }
     }
 }
-
-private data class StarResultText(
-    val title: String,
-    val description: String,
-)
-
-private fun QuizAnswer.toStarResultText(remainingRetryCount: Int): StarResultText =
-    when (star?.coerceIn(MIN_STAR, MAX_STAR)) {
-        null ->
-            StarResultText(
-                title = "답변을 확인하고 있어요",
-                description = "잠시만 기다려 주세요. 채점 결과가 곧 도착해요.",
-            )
-        MAX_STAR ->
-            StarResultText(
-                title = "정말 잘했어요!",
-                description = "단어를 또렷하게 말했어요. 다음 문제로 가볼까요?",
-            )
-        TWO_STARS ->
-            StarResultText(
-                title = "거의 다 왔어요!",
-                description = retryDescription(remainingRetryCount),
-            )
-        else ->
-            StarResultText(
-                title = "다시 한 번 해봐요!",
-                description = retryDescription(remainingRetryCount),
-            )
-    }
-
-private fun retryDescription(remainingRetryCount: Int): String =
-    if (remainingRetryCount > 0) {
-        "천천히 듣고 다시 말해볼 수 있어요. ${remainingRetryCount}번 더 도전할 수 있어요."
-    } else {
-        "충분히 연습했어요. 다음 문제로 넘어가도 괜찮아요."
-    }
-
-private fun QuizAnswer.recognizedTextLabel(): String =
-    sttText
-        .takeIf { it.isNotBlank() }
-        ?: if (isScored) {
-            "인식 결과가 없어요"
-        } else {
-            "서버에서 음성을 확인하고 있어요"
-        }
 
 @Composable
-private fun Int?.starResultColor(): Color =
-    when (this?.coerceIn(MIN_STAR, MAX_STAR)) {
-        null -> MaterialTheme.colorScheme.onSurfaceVariant
-        MAX_STAR -> MaterialTheme.colorScheme.primary
-        TWO_STARS -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.error
+private fun StarRewardBurst(
+    eventKey: String?,
+    isCorrect: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val scale = remember(eventKey) { Animatable(0.7f) }
+    val rotation = remember(eventKey) { Animatable(-10f) }
+    val infiniteTransition = rememberInfiniteTransition(label = "starRewardTwinkle")
+    val sparkleScale =
+        infiniteTransition.animateFloat(
+            initialValue = 0.82f,
+            targetValue = 1.12f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = 760, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "sparkleScale",
+        )
+    val sparkleAlpha =
+        infiniteTransition.animateFloat(
+            initialValue = 0.55f,
+            targetValue = 1f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = 620, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "sparkleAlpha",
+        )
+
+    LaunchedEffect(eventKey) {
+        if (eventKey == null) return@LaunchedEffect
+
+        scale.snapTo(0.7f)
+        rotation.snapTo(-10f)
+        scale.animateTo(
+            targetValue = 1.18f,
+            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        )
+        rotation.animateTo(
+            targetValue = 4f,
+            animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing),
+        )
+        scale.animateTo(
+            targetValue = 1f,
+            animationSpec =
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow,
+                ),
+        )
+        rotation.animateTo(
+            targetValue = 0f,
+            animationSpec =
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+        )
     }
 
-private fun Int?.toResultBadgeText(): String =
-    when (this?.coerceIn(MIN_STAR, MAX_STAR)) {
-        null -> "채점 중"
-        MAX_STAR -> "훌륭해요"
-        TWO_STARS -> "거의 다 왔어요"
-        else -> "다시 도전"
-    }
+    StarRewardBurstContent(
+        isCorrect = isCorrect,
+        starScale = scale.value,
+        starRotation = rotation.value,
+        sparkleScale = sparkleScale.value,
+        sparkleAlpha = sparkleAlpha.value,
+        modifier = modifier,
+    )
+}
 
-private fun Int?.toResultBadgeTone(): AppBadgeTone =
-    when (this?.coerceIn(MIN_STAR, MAX_STAR)) {
-        null -> AppBadgeTone.Neutral
-        MAX_STAR -> AppBadgeTone.Success
-        TWO_STARS -> AppBadgeTone.Primary
-        else -> AppBadgeTone.Error
-    }
-
-private fun Int?.toStarDisplay(): String {
-    val filledCount = this?.coerceIn(0, MAX_STAR) ?: 0
-    return buildString {
-        repeat(MAX_STAR) { index ->
-            append(if (index < filledCount) FILLED_STAR else EMPTY_STAR)
-            if (index < MAX_STAR - 1) append(STAR_SEPARATOR)
-        }
+@Composable
+private fun StarRewardBurstContent(
+    isCorrect: Boolean,
+    starScale: Float,
+    starRotation: Float,
+    sparkleScale: Float,
+    sparkleAlpha: Float,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .size(184.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        RewardSparkle(
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = 30.dp, y = 12.dp),
+            size = 44,
+            scale = sparkleScale,
+            alpha = sparkleAlpha,
+        )
+        RewardSparkle(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-24).dp, y = (-8).dp),
+            size = 38,
+            scale = sparkleScale * 0.92f,
+            alpha = sparkleAlpha,
+        )
+        Image(
+            painter =
+                painterResource(
+                    if (isCorrect) {
+                        R.drawable.star_reward_glow
+                    } else {
+                        R.drawable.star_reward_full
+                    },
+                ),
+            contentDescription = null,
+            modifier =
+                Modifier
+                    .size(164.dp)
+                    .graphicsLayer {
+                        scaleX = starScale
+                        scaleY = starScale
+                        rotationZ = starRotation
+                    },
+        )
     }
 }
+
+@Composable
+private fun RewardSparkle(
+    size: Int,
+    scale: Float,
+    alpha: Float,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        painter = painterResource(R.drawable.star_reward_small),
+        contentDescription = null,
+        modifier =
+            modifier
+                .size(size.dp)
+                .scale(scale)
+                .alpha(alpha),
+    )
+}
+
+private fun QuizAnswer.toRewardTitle(remainingRetryCount: Int): String =
+    when {
+        star == null -> "확인하고 있어요"
+        isCorrect == true -> "잘했어요!"
+        remainingRetryCount > 0 -> "한 번 더 해볼까요?"
+        else -> "괜찮아요!"
+    }
 
 private fun QuizAnswer.feedbackEventKey(): String? =
     star?.let { "${questionId}_${attemptCount}_$it" }
@@ -183,11 +236,3 @@ private fun QuizAnswer.toFeedbackCue(): QuizFeedbackCue? =
         isCorrect == true -> QuizFeedbackCue.Correct
         else -> QuizFeedbackCue.Retry
     }
-
-private const val STAR_REVEAL_DELAY_MILLIS = 130L
-private const val MIN_STAR = 1
-private const val TWO_STARS = 2
-private const val MAX_STAR = 3
-private const val FILLED_STAR = '★'
-private const val EMPTY_STAR = '☆'
-private const val STAR_SEPARATOR = ' '

@@ -73,7 +73,7 @@ class AccountEditViewModel
                     _uiState.value =
                         _uiState.value.copy(
                             isLoading = false,
-                            errorMessage = e.message ?: "계정 정보를 불러오지 못했습니다.",
+                            errorMessage = e.message ?: "계정 정보를 불러오지 못했어요.",
                         )
                 }
             }
@@ -187,7 +187,7 @@ class AccountEditViewModel
                 _uiState.value =
                     _uiState.value.copy(
                         isSaving = false,
-                        errorMessage = e.message ?: "계정 정보를 저장하지 못했습니다.",
+                        errorMessage = e.message ?: "계정 정보를 저장하지 못했어요.",
                     )
             }
         }

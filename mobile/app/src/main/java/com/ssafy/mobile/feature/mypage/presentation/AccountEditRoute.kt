@@ -114,7 +114,7 @@ private fun AccountEditScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "보호자 계정의 이름을 수정할 수 있습니다.",
+                text = "보호자 계정의 이름을 수정할 수 있어요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -129,7 +129,7 @@ private fun AccountEditScreen(
 
                 uiState.accountInfo == null -> {
                     AccountEditErrorState(
-                        message = uiState.errorMessage ?: "계정 정보를 불러오지 못했습니다.",
+                        message = uiState.errorMessage ?: "계정 정보를 불러오지 못했어요.",
                         onRetry = onRetry,
                     )
                 }
@@ -179,7 +179,6 @@ private fun AccountEditForm(
             value = name,
             onValueChange = onNameChange,
             label = "이름",
-            placeholder = "예: 김보호",
             enabled = !isSaving,
             isError = nameError != null,
             supportingText = nameError ?: "이름은 50자 이하로 입력해 주세요.",

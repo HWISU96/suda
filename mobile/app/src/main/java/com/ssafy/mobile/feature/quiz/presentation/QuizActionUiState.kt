@@ -1,26 +1,28 @@
+@file:Suppress("LongMethod", "MagicNumber", "TooManyFunctions")
+
 package com.ssafy.mobile.feature.quiz.presentation
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ssafy.mobile.core.ui.components.AppBadge
 import com.ssafy.mobile.core.ui.components.AppBadgeTone
-import com.ssafy.mobile.core.ui.components.AppCard
-import com.ssafy.mobile.core.ui.components.AppSecondaryButton
+import com.ssafy.mobile.core.ui.components.ChunkyButton
+import com.ssafy.mobile.core.ui.components.ChunkyButtonTone
 import com.ssafy.mobile.feature.quiz.domain.model.QuizAnswer
 
 internal data class QuizActionUiState(
@@ -105,82 +107,81 @@ internal fun QuizActionCard(
     onNextClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isRecording =
-        actionState.recording.status == QuizRecordingStatus.Recording ||
-            actionState.recording.status == QuizRecordingStatus.FallbackRecording
+    val isRecording = actionState.recording.status.isRecordingStatus()
+    val isBusy =
+        actionState.recording.status == QuizRecordingStatus.Processing ||
+            actionState.answerSubmitState == QuizAnswerSubmitState.Submitting
+    val canMoveNext = actionState.nextButton.enabled
 
-    AppCard(modifier = modifier.fillMaxWidth()) {
-        QuizRecordingStatusText(
-            recordingStatus = actionState.recording.status,
-            answerAttemptCount = actionState.recording.answerAttemptCount,
-            recognizedText = actionState.recording.recognizedText,
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        QuizRecordButton(
-            text = actionState.recordButton.text,
-            onClick = onAnswerClick,
-            enabled = actionState.recordButton.enabled,
-            isRecording = isRecording,
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        AppSecondaryButton(
-            text = actionState.nextButton.text,
-            onClick = onNextClick,
-            enabled = actionState.nextButton.enabled,
-        )
-
-        AnswerSubmitStatusBadge(
-            state = actionState.answerSubmitState,
-            modifier = Modifier.padding(top = 10.dp),
-        )
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        if (canMoveNext) {
+            ChunkyButton(
+                text = actionState.nextButton.text,
+                onClick = onNextClick,
+                enabled = true,
+                tone = ChunkyButtonTone.Primary,
+                modifier = Modifier.fillMaxWidth(0.62f),
+            )
+        } else {
+            MicCircleButton(
+                isRecording = isRecording,
+                isBusy = isBusy,
+                enabled = actionState.recordButton.enabled || isRecording,
+                onClick = onAnswerClick,
+            )
+            Text(
+                text = actionState.toShortGuideMessage(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            AnswerSubmitStatusBadge(state = actionState.answerSubmitState)
+        }
     }
 }
 
 @Composable
-private fun QuizRecordButton(
-    text: String,
-    onClick: () -> Unit,
-    enabled: Boolean,
+private fun MicCircleButton(
     isRecording: Boolean,
-    modifier: Modifier = Modifier,
+    isBusy: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
 ) {
-    Button(
+    Surface(
         onClick = onClick,
-        enabled = enabled || isRecording,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .heightIn(min = 58.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors =
-            ButtonDefaults.buttonColors(
-                containerColor =
-                    if (isRecording) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                contentColor =
-                    if (isRecording) {
-                        MaterialTheme.colorScheme.onError
-                    } else {
-                        MaterialTheme.colorScheme.onPrimary
-                    },
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+        enabled = enabled && !isBusy,
+        modifier = Modifier.size(88.dp),
+        shape = CircleShape,
+        color =
+            when {
+                isRecording -> Color(0xFFFF8F8F)
+                enabled -> Color(0xFF76CFF0)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
+        contentColor = Color.White,
+        shadowElevation = 10.dp,
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            if (isBusy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(32.dp),
+                    strokeWidth = 3.dp,
+                    color = Color.White,
+                )
+            } else {
+                Text(
+                    text = if (isRecording) "■" else "🎙",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
 }
 
@@ -201,6 +202,21 @@ private fun AnswerSubmitStatusBadge(
         )
     }
 }
+
+private fun QuizActionUiState.toShortGuideMessage(): String =
+    when {
+        recording.status.isRecordingStatus() -> "다 말했으면 한 번 더 눌러요."
+        recording.status == QuizRecordingStatus.Processing -> "목소리를 확인하고 있어요."
+        answerSubmitState == QuizAnswerSubmitState.Submitting -> "답변을 저장하고 있어요."
+        answerSubmitState is QuizAnswerSubmitState.Error -> answerSubmitState.message
+        answerSubmitState is QuizAnswerSubmitState.SaveFailed -> answerSubmitState.message
+        recording.answerAttemptCount != null -> "천천히 다시 말해볼까요?"
+        else -> "버튼을 누르고 단어를 말해요."
+    }
+
+private fun QuizRecordingStatus.isRecordingStatus(): Boolean =
+    this == QuizRecordingStatus.Recording ||
+        this == QuizRecordingStatus.FallbackRecording
 
 private fun QuizAnswerSubmitState.toStatusMessage(): String? =
     when (this) {

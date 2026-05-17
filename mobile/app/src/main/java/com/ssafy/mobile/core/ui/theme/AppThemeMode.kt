@@ -17,9 +17,9 @@ enum class AppThemeMode {
     val description: String
         get() =
             when (this) {
-                System -> "기기 설정에 맞춰 자동으로 변경됩니다."
-                Light -> "밝은 화면으로 앱을 사용합니다."
-                Dark -> "어두운 화면으로 앱을 사용합니다."
+                System -> "기기 설정에 맞춰 자동으로 변경돼요."
+                Light -> "밝은 화면으로 앱을 사용해요."
+                Dark -> "어두운 화면으로 앱을 사용해요."
             }
 
     fun shouldUseDarkTheme(systemInDarkTheme: Boolean): Boolean =

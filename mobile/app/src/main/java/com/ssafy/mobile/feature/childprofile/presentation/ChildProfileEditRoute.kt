@@ -1,9 +1,14 @@
+@file:Suppress("TooManyFunctions")
+
 package com.ssafy.mobile.feature.childprofile.presentation
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,13 +40,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ssafy.mobile.core.ui.components.AppCard
@@ -61,6 +67,7 @@ fun ChildProfileEditRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val name by viewModel.name.collectAsStateWithLifecycle()
     val birthDate by viewModel.birthDate.collectAsStateWithLifecycle()
+    val avatarKey by viewModel.avatarKey.collectAsStateWithLifecycle()
     val isProfileLoaded by viewModel.isProfileLoaded.collectAsStateWithLifecycle()
 
     LaunchedEffect(childId) {
@@ -82,8 +89,10 @@ fun ChildProfileEditRoute(
         uiState = uiState,
         name = name,
         birthDate = birthDate,
+        avatarKey = avatarKey,
         onNameChange = viewModel::onNameChange,
         onBirthDateChange = viewModel::onBirthDateChange,
+        onAvatarKeyChange = viewModel::onAvatarKeyChange,
         onSave = viewModel::saveProfile,
         onDelete = viewModel::deleteProfile,
         onRetry = { childId?.let { viewModel.loadProfile(it) } },
@@ -101,8 +110,10 @@ private fun ChildProfileEditScreen(
     uiState: ChildProfileEditUiState,
     name: String,
     birthDate: String,
+    avatarKey: String,
     onNameChange: (String) -> Unit,
     onBirthDateChange: (String) -> Unit,
+    onAvatarKeyChange: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
     onRetry: () -> Unit,
@@ -164,6 +175,7 @@ private fun ChildProfileEditScreen(
                 ) {
                     ProfilePreviewCard(
                         name = name,
+                        avatarKey = avatarKey,
                         isEditMode = isEditMode,
                     )
 
@@ -172,10 +184,12 @@ private fun ChildProfileEditScreen(
                     EditForm(
                         name = name,
                         birthDate = birthDate,
+                        avatarKey = avatarKey,
                         isSaving = isSaving,
                         errorMessage = (uiState as? ChildProfileEditUiState.Error)?.message,
                         onNameChange = onNameChange,
                         onBirthDateChange = onBirthDateChange,
+                        onAvatarKeyChange = onAvatarKeyChange,
                     )
                 }
 
@@ -218,6 +232,7 @@ private fun EditTopBar(
 @Composable
 private fun ProfilePreviewCard(
     name: String,
+    avatarKey: String,
     isEditMode: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -258,11 +273,14 @@ private fun ProfilePreviewCard(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = name.trim().firstOrNull()?.toString() ?: "+",
-                    fontSize = 54.sp,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                Image(
+                    painter = painterResource(id = ChildProfileAvatars.resourceId(avatarKey)),
+                    contentDescription = "선택한 프로필 이미지",
+                    contentScale = ContentScale.Fit,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(12.dp),
                 )
             }
         }
@@ -280,13 +298,16 @@ private fun ProfilePreviewCard(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun EditForm(
     name: String,
     birthDate: String,
+    avatarKey: String,
     isSaving: Boolean,
     errorMessage: String?,
     onNameChange: (String) -> Unit,
     onBirthDateChange: (String) -> Unit,
+    onAvatarKeyChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
@@ -312,6 +333,14 @@ private fun EditForm(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        AvatarPicker(
+            selectedAvatarKey = avatarKey,
+            enabled = !isSaving,
+            onAvatarSelected = onAvatarKeyChange,
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
 
         AppTextField(
@@ -347,6 +376,82 @@ private fun EditForm(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+}
+
+@Composable
+private fun AvatarPicker(
+    selectedAvatarKey: String,
+    enabled: Boolean,
+    onAvatarSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "프로필 이미지",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        ChildProfileAvatars.items.chunked(AVATAR_PICKER_COLUMNS).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                rowItems.forEach { avatar ->
+                    AvatarOption(
+                        avatar = avatar,
+                        selected = avatar.key == selectedAvatarKey,
+                        enabled = enabled,
+                        onClick = { onAvatarSelected(avatar.key) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(AVATAR_PICKER_COLUMNS - rowItems.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarOption(
+    avatar: ChildProfileAvatarSpec,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .clickable(
+                    enabled = enabled,
+                    onClick = onClick,
+                ),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.64f),
+        border =
+            if (selected) {
+                BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
+            } else {
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            },
+    ) {
+        Image(
+            painter = painterResource(id = avatar.drawableResId),
+            contentDescription = avatar.label,
+            contentScale = ContentScale.Fit,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+        )
     }
 }
 
@@ -452,3 +557,4 @@ private fun DeleteConfirmationDialog(
 }
 
 private const val PROFILE_PREVIEW_WIDTH_FRACTION = 0.52f
+private const val AVATAR_PICKER_COLUMNS = 3

@@ -1,16 +1,25 @@
+@file:Suppress("MagicNumber")
+
 package com.ssafy.mobile.feature.mypage.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -18,11 +27,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ssafy.mobile.core.ui.components.AppCard
 import com.ssafy.mobile.core.ui.theme.AppThemeMode
 
 @Composable
@@ -51,7 +60,7 @@ private fun AppSettingsScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
         topBar = {
             TopAppBar(
                 title = {
@@ -74,15 +83,15 @@ private fun AppSettingsScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Text(
-                text = "앱 사용 환경을 설정합니다.",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "화면과 사용 환경을 설정해요.",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            ThemeModeSettingsCard(
+            ThemeModeSettingsGroup(
                 selectedMode = themeMode,
                 onThemeModeSelected = onThemeModeSelected,
             )
@@ -91,34 +100,31 @@ private fun AppSettingsScreen(
 }
 
 @Composable
-private fun ThemeModeSettingsCard(
+private fun ThemeModeSettingsGroup(
     selectedMode: AppThemeMode,
     onThemeModeSelected: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AppCard(modifier = modifier.fillMaxWidth()) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "테마 설정",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "앱 화면을 시스템 설정, 라이트 모드, 다크 모드 중에서 선택합니다.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            AppThemeMode.entries.forEach { mode ->
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Column {
+            AppThemeMode.entries.forEachIndexed { index, mode ->
                 ThemeModeRow(
                     mode = mode,
                     selected = mode == selectedMode,
+                    iconColor = mode.iconColor(),
                     onClick = { onThemeModeSelected(mode) },
                 )
+                if (index != AppThemeMode.entries.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 82.dp, end = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                    )
+                }
             }
         }
     }
@@ -128,6 +134,7 @@ private fun ThemeModeSettingsCard(
 private fun ThemeModeRow(
     mode: AppThemeMode,
     selected: Boolean,
+    iconColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -135,24 +142,36 @@ private fun ThemeModeRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 4.dp),
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .padding(start = 20.dp)
+                    .size(42.dp)
+                    .background(iconColor, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = mode.iconLabel(),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+            )
+        }
         Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = mode.label,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = mode.description,
@@ -160,5 +179,24 @@ private fun ThemeModeRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            modifier = Modifier.padding(end = 14.dp),
+        )
     }
 }
+
+private fun AppThemeMode.iconLabel(): String =
+    when (this) {
+        AppThemeMode.System -> "자"
+        AppThemeMode.Light -> "라"
+        AppThemeMode.Dark -> "다"
+    }
+
+private fun AppThemeMode.iconColor(): Color =
+    when (this) {
+        AppThemeMode.System -> Color(0xFF3F8DF6)
+        AppThemeMode.Light -> Color(0xFFFFB020)
+        AppThemeMode.Dark -> Color(0xFF6C5CE7)
+    }

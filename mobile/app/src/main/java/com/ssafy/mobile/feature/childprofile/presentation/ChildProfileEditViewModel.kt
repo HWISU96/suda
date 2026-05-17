@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.mobile.core.session.ActiveChildStorage
+import com.ssafy.mobile.feature.childprofile.domain.model.DEFAULT_CHILD_PROFILE_AVATAR_KEY
 import com.ssafy.mobile.feature.childprofile.domain.repository.ChildProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -49,6 +50,9 @@ class ChildProfileEditViewModel
         var birthDate = MutableStateFlow("")
             private set
 
+        var avatarKey = MutableStateFlow(DEFAULT_CHILD_PROFILE_AVATAR_KEY)
+            private set
+
         private var editingChildId: Long? = null
 
         @Suppress("TooGenericExceptionCaught")
@@ -64,6 +68,7 @@ class ChildProfileEditViewModel
                         }
                     name.value = profile.name
                     birthDate.value = profile.birthDate
+                    avatarKey.value = profile.avatarKey
                     _isProfileLoaded.value = true
                     _uiState.value = ChildProfileEditUiState.Idle
                 } catch (e: CancellationException) {
@@ -100,7 +105,11 @@ class ChildProfileEditViewModel
             }
 
             val normalizedBirthDate = validationResult.normalizedDate!!
-            performSave(currentName, normalizedBirthDate)
+            performSave(
+                currentName = currentName,
+                normalizedBirthDate = normalizedBirthDate,
+                currentAvatarKey = avatarKey.value,
+            )
         }
 
         @Suppress("TooGenericExceptionCaught")
@@ -134,6 +143,7 @@ class ChildProfileEditViewModel
         private fun performSave(
             currentName: String,
             normalizedBirthDate: String,
+            currentAvatarKey: String,
         ) {
             _uiState.value = ChildProfileEditUiState.Saving
             viewModelScope.launch {
@@ -144,12 +154,14 @@ class ChildProfileEditViewModel
                             childProfileRepository.createChildProfile(
                                 name = currentName,
                                 birthDate = normalizedBirthDate,
+                                avatarKey = currentAvatarKey,
                             )
                         } else {
                             childProfileRepository.updateChildProfile(
                                 childId = childId,
                                 name = currentName,
                                 birthDate = normalizedBirthDate,
+                                avatarKey = currentAvatarKey,
                             )
                         }
                     }
@@ -175,6 +187,13 @@ class ChildProfileEditViewModel
             if (newBirthDate.isEmpty() || newBirthDate.all { it.isDigit() || it == '-' }) {
                 birthDate.value = newBirthDate
             }
+            if (_uiState.value is ChildProfileEditUiState.Error) {
+                _uiState.value = ChildProfileEditUiState.Idle
+            }
+        }
+
+        fun onAvatarKeyChange(newAvatarKey: String) {
+            avatarKey.value = newAvatarKey
             if (_uiState.value is ChildProfileEditUiState.Error) {
                 _uiState.value = ChildProfileEditUiState.Idle
             }

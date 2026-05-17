@@ -1,5 +1,8 @@
 package com.ssafy.backend.domain.user.docs;
 
+import com.ssafy.backend.domain.social.dto.SocialAccountLinkRequestDto;
+import com.ssafy.backend.domain.social.dto.SocialAccountListResponseDto;
+import com.ssafy.backend.domain.social.dto.SocialAccountResponseDto;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerListResponseDto;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerUpdateRequestDto;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerUpdateResponseDto;
@@ -112,4 +115,50 @@ public interface UserApiDocs {
   ResponseEntity<TtsSpeakerUpdateResponseDto> updateTtsSpeaker(
       @Parameter(hidden = true) Authentication authentication,
       @Valid @RequestBody TtsSpeakerUpdateRequestDto request);
+
+  @Operation(
+      summary = "내 소셜 계정 연동 상태 조회",
+      description = "인증된 사용자의 소셜 계정 연동 상태를 조회합니다.",
+      security = {@SecurityRequirement(name = "bearerAuth")})
+  @ApiErrorCodes({"COMMON_UNAUTHORIZED", "USER_NOT_FOUND"})
+  @ApiResponse(
+      responseCode = "200",
+      description = "성공",
+      content = @Content(schema = @Schema(implementation = SocialAccountListResponseDto.class)))
+  ResponseEntity<SocialAccountListResponseDto> getSocialAccounts(
+      @Parameter(hidden = true) Authentication authentication);
+
+  @Operation(
+      summary = "네이버 계정 연동",
+      description = "네이버 Android SDK가 발급한 provider Access Token으로 현재 계정에 네이버 계정을 연동합니다.",
+      security = {@SecurityRequirement(name = "bearerAuth")})
+  @ApiErrorCodes({
+    "VALIDATION_REQUIRED_FIELD",
+    "COMMON_UNAUTHORIZED",
+    "USER_NOT_FOUND",
+    "OAUTH_INVALID_PROVIDER_TOKEN",
+    "OAUTH_PROVIDER_ERROR",
+    "SOCIAL_ACCOUNT_ALREADY_LINKED",
+    "SOCIAL_ACCOUNT_LINKED_TO_OTHER_USER"
+  })
+  @ApiResponse(
+      responseCode = "200",
+      description = "성공",
+      content = @Content(schema = @Schema(implementation = SocialAccountResponseDto.class)))
+  ResponseEntity<SocialAccountResponseDto> linkNaver(
+      @Parameter(hidden = true) Authentication authentication,
+      @Valid @RequestBody SocialAccountLinkRequestDto request);
+
+  @Operation(
+      summary = "네이버 계정 연동 해제",
+      description = "현재 계정에 연동된 네이버 계정을 해제합니다. 마지막 로그인 수단이면 해제할 수 없습니다.",
+      security = {@SecurityRequirement(name = "bearerAuth")})
+  @ApiErrorCodes({
+    "COMMON_UNAUTHORIZED",
+    "USER_NOT_FOUND",
+    "SOCIAL_ACCOUNT_NOT_LINKED",
+    "SOCIAL_ACCOUNT_LAST_LOGIN_METHOD"
+  })
+  @ApiResponse(responseCode = "204", description = "성공")
+  ResponseEntity<Void> unlinkNaver(@Parameter(hidden = true) Authentication authentication);
 }

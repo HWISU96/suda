@@ -54,4 +54,20 @@ public class SocialAccount extends BaseEntity {
   public User getUser() {
     return user;
   }
+
+  public Long getId() {
+    return id;
+  }
+
+  public SocialProvider getProvider() {
+    return provider;
+  }
+
+  public String getProviderUserId() {
+    return providerUserId;
+  }
+
+  public String getProviderEmail() {
+    return providerEmail;
+  }
 }

@@ -1,5 +1,9 @@
 package com.ssafy.backend.domain.user.controller;
 
+import com.ssafy.backend.domain.social.dto.SocialAccountLinkRequestDto;
+import com.ssafy.backend.domain.social.dto.SocialAccountListResponseDto;
+import com.ssafy.backend.domain.social.dto.SocialAccountResponseDto;
+import com.ssafy.backend.domain.social.service.SocialAccountService;
 import com.ssafy.backend.domain.user.docs.UserApiDocs;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerListResponseDto;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerUpdateRequestDto;
@@ -18,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,9 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController implements UserApiDocs {
 
   private final UserService userService;
+  private final SocialAccountService socialAccountService;
 
-  public UserController(UserService userService) {
+  public UserController(UserService userService, SocialAccountService socialAccountService) {
     this.userService = userService;
+    this.socialAccountService = socialAccountService;
   }
 
   @GetMapping("/me")
@@ -88,6 +95,34 @@ public class UserController implements UserApiDocs {
     Long userId = extractUserId(authentication);
 
     return ResponseEntity.ok(userService.updateTtsSpeaker(userId, requestDto.ttsSpeaker()));
+  }
+
+  @GetMapping("/me/social-accounts")
+  @Override
+  public ResponseEntity<SocialAccountListResponseDto> getSocialAccounts(
+      Authentication authentication) {
+    Long userId = extractUserId(authentication);
+
+    return ResponseEntity.ok(socialAccountService.getMySocialAccounts(userId));
+  }
+
+  @PostMapping("/me/social-accounts/naver")
+  @Override
+  public ResponseEntity<SocialAccountResponseDto> linkNaver(
+      Authentication authentication, @Valid @RequestBody SocialAccountLinkRequestDto requestDto) {
+    Long userId = extractUserId(authentication);
+
+    return ResponseEntity.ok(
+        socialAccountService.linkNaver(userId, requestDto.providerAccessToken()));
+  }
+
+  @DeleteMapping("/me/social-accounts/naver")
+  @Override
+  public ResponseEntity<Void> unlinkNaver(Authentication authentication) {
+    Long userId = extractUserId(authentication);
+
+    socialAccountService.unlinkNaver(userId);
+    return ResponseEntity.noContent().build();
   }
 
   private Long extractUserId(Authentication authentication) {

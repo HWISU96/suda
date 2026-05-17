@@ -42,10 +42,15 @@ public class PasswordResetService {
     if (!isResettableAccount(normalizedEmail)) {
       return;
     }
+    if (passwordResetStore.hasRequestCooldown(normalizedEmail)) {
+      return;
+    }
 
     String code = passwordResetCodeGenerator.generateCode(passwordResetProperties.getCodeLength());
     long ttlSeconds = passwordResetProperties.getCodeTtlSeconds();
     passwordResetStore.saveCode(normalizedEmail, code, Duration.ofSeconds(ttlSeconds));
+    passwordResetStore.saveRequestCooldown(
+        normalizedEmail, Duration.ofSeconds(passwordResetProperties.getRequestCooldownSeconds()));
     passwordResetCodeSender.send(normalizedEmail, code, ttlSeconds);
   }
 
@@ -53,6 +58,7 @@ public class PasswordResetService {
     String normalizedEmail = normalizeEmail(email);
     String storedCode = passwordResetStore.findCodeByEmail(normalizedEmail);
     if (storedCode == null || !storedCode.equals(code) || !isResettableAccount(normalizedEmail)) {
+      handleVerifyFailure(normalizedEmail, storedCode);
       throw new BusinessException(AuthErrorCode.INVALID_PASSWORD_RESET_CODE);
     }
 
@@ -61,6 +67,19 @@ public class PasswordResetService {
     long ttlSeconds = passwordResetProperties.getResetTokenTtlSeconds();
     passwordResetStore.saveResetToken(resetToken, normalizedEmail, Duration.ofSeconds(ttlSeconds));
     return new PasswordResetVerifyResponseDto(resetToken, ttlSeconds);
+  }
+
+  private void handleVerifyFailure(String email, String storedCode) {
+    if (storedCode == null) {
+      return;
+    }
+
+    long attempts =
+        passwordResetStore.incrementVerifyAttempt(
+            email, Duration.ofSeconds(passwordResetProperties.getCodeTtlSeconds()));
+    if (attempts >= passwordResetProperties.getMaxVerifyAttempts()) {
+      passwordResetStore.deleteCode(email);
+    }
   }
 
   @Transactional

@@ -14,6 +14,12 @@ public class PasswordResetProperties {
 
   @Positive private long resetTokenTtlSeconds = 600;
 
+  @Positive private int maxVerifyAttempts = 5;
+
+  @Positive private long requestCooldownSeconds = 60;
+
+  private boolean logCodeEnabled = false;
+
   public int getCodeLength() {
     return codeLength;
   }
@@ -36,5 +42,29 @@ public class PasswordResetProperties {
 
   public void setResetTokenTtlSeconds(long resetTokenTtlSeconds) {
     this.resetTokenTtlSeconds = resetTokenTtlSeconds;
+  }
+
+  public int getMaxVerifyAttempts() {
+    return maxVerifyAttempts;
+  }
+
+  public void setMaxVerifyAttempts(int maxVerifyAttempts) {
+    this.maxVerifyAttempts = maxVerifyAttempts;
+  }
+
+  public long getRequestCooldownSeconds() {
+    return requestCooldownSeconds;
+  }
+
+  public void setRequestCooldownSeconds(long requestCooldownSeconds) {
+    this.requestCooldownSeconds = requestCooldownSeconds;
+  }
+
+  public boolean isLogCodeEnabled() {
+    return logCodeEnabled;
+  }
+
+  public void setLogCodeEnabled(boolean logCodeEnabled) {
+    this.logCodeEnabled = logCodeEnabled;
   }
 }

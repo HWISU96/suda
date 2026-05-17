@@ -34,6 +34,7 @@ class PasswordResetServiceTest {
   private static final String NEW_PASSWORD = "NewPassword1!";
   private static final long CODE_TTL_SECONDS = 300L;
   private static final long RESET_TOKEN_TTL_SECONDS = 600L;
+  private static final long REQUEST_COOLDOWN_SECONDS = 60L;
 
   @Mock private UserService userService;
   @Mock private PasswordResetStore passwordResetStore;
@@ -49,6 +50,8 @@ class PasswordResetServiceTest {
     passwordResetProperties.setCodeLength(6);
     passwordResetProperties.setCodeTtlSeconds(CODE_TTL_SECONDS);
     passwordResetProperties.setResetTokenTtlSeconds(RESET_TOKEN_TTL_SECONDS);
+    passwordResetProperties.setMaxVerifyAttempts(5);
+    passwordResetProperties.setRequestCooldownSeconds(REQUEST_COOLDOWN_SECONDS);
 
     passwordResetService =
         new PasswordResetService(
@@ -69,7 +72,22 @@ class PasswordResetServiceTest {
     passwordResetService.request(RAW_EMAIL);
 
     verify(passwordResetStore).saveCode(EMAIL, CODE, Duration.ofSeconds(CODE_TTL_SECONDS));
+    verify(passwordResetStore)
+        .saveRequestCooldown(EMAIL, Duration.ofSeconds(REQUEST_COOLDOWN_SECONDS));
     verify(passwordResetCodeSender).send(EMAIL, CODE, CODE_TTL_SECONDS);
+  }
+
+  @Test
+  @DisplayName("재설정 요청 쿨다운 중이면 인증 코드를 다시 만들지 않는다")
+  void requestSkipsWhenCooldownExists() {
+    when(userService.getAuthInfoByEmail(EMAIL)).thenReturn(activePasswordUser());
+    when(passwordResetStore.hasRequestCooldown(EMAIL)).thenReturn(true);
+
+    passwordResetService.request(RAW_EMAIL);
+
+    verify(passwordResetCodeGenerator, never()).generateCode(Mockito.anyInt());
+    verify(passwordResetStore, never()).saveCode(Mockito.any(), Mockito.any(), Mockito.any());
+    verify(passwordResetCodeSender, never()).send(Mockito.any(), Mockito.any(), Mockito.anyLong());
   }
 
   @Test
@@ -135,6 +153,23 @@ class PasswordResetServiceTest {
         AuthErrorCode.INVALID_PASSWORD_RESET_CODE);
 
     verify(passwordResetStore, never()).deleteCode(Mockito.any());
+    verify(passwordResetStore).incrementVerifyAttempt(EMAIL, Duration.ofSeconds(CODE_TTL_SECONDS));
+    verify(passwordResetCodeGenerator, never()).generateResetToken();
+    verify(passwordResetStore, never()).saveResetToken(Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  @DisplayName("인증 코드 실패 횟수가 제한에 도달하면 인증 코드를 삭제한다")
+  void verifyDeletesCodeWhenMaxAttemptsExceeded() {
+    when(passwordResetStore.findCodeByEmail(EMAIL)).thenReturn("000000");
+    when(passwordResetStore.incrementVerifyAttempt(EMAIL, Duration.ofSeconds(CODE_TTL_SECONDS)))
+        .thenReturn(5L);
+
+    assertAuthError(
+        () -> passwordResetService.verify(RAW_EMAIL, CODE),
+        AuthErrorCode.INVALID_PASSWORD_RESET_CODE);
+
+    verify(passwordResetStore).deleteCode(EMAIL);
     verify(passwordResetCodeGenerator, never()).generateResetToken();
     verify(passwordResetStore, never()).saveResetToken(Mockito.any(), Mockito.any(), Mockito.any());
   }

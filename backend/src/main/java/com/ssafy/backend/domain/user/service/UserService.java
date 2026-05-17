@@ -1,5 +1,6 @@
 package com.ssafy.backend.domain.user.service;
 
+import com.ssafy.backend.domain.auth.service.UserTokenInvalidationService;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerListResponseDto;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerResponseDto;
 import com.ssafy.backend.domain.user.dto.TtsSpeakerUpdateResponseDto;
@@ -23,10 +24,15 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
+  private final UserTokenInvalidationService userTokenInvalidationService;
 
-  public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+  public UserService(
+      UserRepository userRepository,
+      PasswordEncoder passwordEncoder,
+      UserTokenInvalidationService userTokenInvalidationService) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
+    this.userTokenInvalidationService = userTokenInvalidationService;
   }
 
   @Transactional(readOnly = true)
@@ -37,7 +43,12 @@ public class UserService {
             .findByEmailIgnoreCase(normalizedEmail)
             .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     return new UserAuthResponseDto(
-        user.getId(), user.getEmail(), user.getPassword(), user.isActive(), user.getRole());
+        user.getId(),
+        user.getEmail(),
+        user.getPassword(),
+        user.isPasswordLoginEnabled(),
+        user.isActive(),
+        user.getRole());
   }
 
   @Transactional(readOnly = true)
@@ -47,7 +58,12 @@ public class UserService {
             .findById(userId)
             .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     return new UserAuthResponseDto(
-        user.getId(), user.getEmail(), user.getPassword(), user.isActive(), user.getRole());
+        user.getId(),
+        user.getEmail(),
+        user.getPassword(),
+        user.isPasswordLoginEnabled(),
+        user.isActive(),
+        user.getRole());
   }
 
   @Transactional(readOnly = true)
@@ -93,6 +109,9 @@ public class UserService {
             .findById(userId)
             .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
+    if (!user.isPasswordLoginEnabled()) {
+      throw new BusinessException(UserErrorCode.PASSWORD_LOGIN_NOT_ENABLED);
+    }
     if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
       throw new BusinessException(UserErrorCode.CURRENT_PASSWORD_MISMATCH);
     }
@@ -102,6 +121,30 @@ public class UserService {
 
     user.changePassword(passwordEncoder.encode(newPassword));
     userRepository.flush();
+  }
+
+  public void withdraw(Long userId, String password) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+    if (!user.isActive()) {
+      throw new BusinessException(UserErrorCode.USER_NOT_FOUND);
+    }
+
+    if (user.isPasswordLoginEnabled()) {
+      if (password == null || password.isBlank()) {
+        throw new BusinessException(UserErrorCode.WITHDRAW_PASSWORD_REQUIRED);
+      }
+      if (!passwordEncoder.matches(password, user.getPassword())) {
+        throw new BusinessException(UserErrorCode.CURRENT_PASSWORD_MISMATCH);
+      }
+    }
+
+    user.withdraw();
+    userRepository.flush();
+    userTokenInvalidationService.invalidateAll(userId);
   }
 
   @Transactional(readOnly = true)
@@ -156,6 +199,7 @@ public class UserService {
         user.getId(),
         user.getEmail(),
         user.getName(),
+        user.isPasswordLoginEnabled(),
         user.isActive(),
         user.getRole(),
         user.getTtsSpeaker());

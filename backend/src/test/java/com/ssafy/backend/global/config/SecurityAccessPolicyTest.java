@@ -1,6 +1,7 @@
 package com.ssafy.backend.global.config;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -8,11 +9,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ssafy.backend.domain.auth.service.AccessTokenBlacklistStore;
+import com.ssafy.backend.domain.auth.service.AccessTokenInvalidationStore;
 import com.ssafy.backend.global.security.ProblemDetailAccessDeniedHandler;
 import com.ssafy.backend.global.security.ProblemDetailAuthenticationEntryPoint;
 import com.ssafy.backend.global.security.Role;
 import com.ssafy.backend.global.security.jwt.JwtAuthenticationFilter;
 import com.ssafy.backend.global.security.jwt.JwtTokenProvider;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,20 +52,24 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 class SecurityAccessPolicyTest {
 
   private static final String VALID_ACCESS_TOKEN = "valid-access-token";
+  private static final Instant VALID_ACCESS_TOKEN_ISSUED_AT = Instant.parse("2026-05-17T00:00:00Z");
 
   @Autowired private WebApplicationContext context;
   @Autowired private JwtTokenProvider jwtTokenProvider;
   @Autowired private AccessTokenBlacklistStore accessTokenBlacklistStore;
+  @Autowired private AccessTokenInvalidationStore accessTokenInvalidationStore;
 
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
-    Mockito.reset(jwtTokenProvider, accessTokenBlacklistStore);
+    Mockito.reset(jwtTokenProvider, accessTokenBlacklistStore, accessTokenInvalidationStore);
     Mockito.when(jwtTokenProvider.validateToken(VALID_ACCESS_TOKEN)).thenReturn(true);
     Mockito.when(jwtTokenProvider.isAccessToken(VALID_ACCESS_TOKEN)).thenReturn(true);
     Mockito.when(jwtTokenProvider.getJti(VALID_ACCESS_TOKEN)).thenReturn("valid-access-jti");
     Mockito.when(jwtTokenProvider.getUserId(VALID_ACCESS_TOKEN)).thenReturn(1L);
+    Mockito.when(jwtTokenProvider.getIssuedAt(VALID_ACCESS_TOKEN))
+        .thenReturn(VALID_ACCESS_TOKEN_ISSUED_AT);
     Mockito.when(jwtTokenProvider.getRole(VALID_ACCESS_TOKEN)).thenReturn(Role.USER);
     mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
   }
@@ -104,6 +112,7 @@ class SecurityAccessPolicyTest {
   void protectedDomainApisRequireAuthentication() throws Exception {
     mockMvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized());
     mockMvc.perform(patch("/api/v1/users/me")).andExpect(status().isUnauthorized());
+    mockMvc.perform(delete("/api/v1/users/me")).andExpect(status().isUnauthorized());
     mockMvc.perform(get("/api/v1/children")).andExpect(status().isUnauthorized());
     mockMvc.perform(post("/api/v1/children")).andExpect(status().isUnauthorized());
     mockMvc.perform(get("/api/v1/learn/categories")).andExpect(status().isUnauthorized());
@@ -116,6 +125,17 @@ class SecurityAccessPolicyTest {
     mockMvc
         .perform(get("/api/v1/users/me").header("Authorization", "Bearer " + VALID_ACCESS_TOKEN))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("무효화 기준 시각 이전에 발급된 액세스 토큰은 보호 API를 호출할 수 없다")
+  void protectedApiRejectsInvalidatedAccessToken() throws Exception {
+    Mockito.when(accessTokenInvalidationStore.isInvalidated(1L, VALID_ACCESS_TOKEN_ISSUED_AT))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(get("/api/v1/users/me").header("Authorization", "Bearer " + VALID_ACCESS_TOKEN))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test
@@ -144,6 +164,11 @@ class SecurityAccessPolicyTest {
     @Bean
     AccessTokenBlacklistStore accessTokenBlacklistStore() {
       return Mockito.mock(AccessTokenBlacklistStore.class);
+    }
+
+    @Bean
+    AccessTokenInvalidationStore accessTokenInvalidationStore() {
+      return Mockito.mock(AccessTokenInvalidationStore.class);
     }
   }
 
@@ -189,6 +214,11 @@ class SecurityAccessPolicyTest {
 
     @PatchMapping("/api/v1/users/me")
     ResponseEntity<Void> patchEndpoint() {
+      return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/api/v1/users/me")
+    ResponseEntity<Void> deleteEndpoint() {
       return ResponseEntity.ok().build();
     }
 

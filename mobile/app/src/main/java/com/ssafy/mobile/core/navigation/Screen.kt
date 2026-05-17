@@ -48,6 +48,8 @@ sealed class Screen(
 
     data object AccountEdit : Screen("account_edit_route")
 
+    data object AiModelSettings : Screen("ai_model_settings_route")
+
     data object Sign : Screen("sign_route")
 
     data object LearningCategory : Screen("learning_category_route")

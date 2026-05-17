@@ -56,12 +56,14 @@ class RemoteChildProfileRepository
         override suspend fun createChildProfile(
             name: String,
             birthDate: String,
+            avatarKey: String,
         ) {
             try {
                 val request =
                     ChildProfileCreateRequestDto(
                         name = name,
                         birthDate = birthDate,
+                        avatarKey = avatarKey,
                     )
                 val response = apiService.createChildProfile(request)
                 if (!response.isSuccessful) {
@@ -120,9 +122,15 @@ class RemoteChildProfileRepository
             childId: Long,
             name: String?,
             birthDate: String?,
+            avatarKey: String?,
         ) {
             try {
-                val request = ChildProfileUpdateRequestDto(name = name, birthDate = birthDate)
+                val request =
+                    ChildProfileUpdateRequestDto(
+                        name = name,
+                        birthDate = birthDate,
+                        avatarKey = avatarKey,
+                    )
                 val response = apiService.updateChildProfile(childId, request)
                 if (!response.isSuccessful) {
                     throw HttpException(response)

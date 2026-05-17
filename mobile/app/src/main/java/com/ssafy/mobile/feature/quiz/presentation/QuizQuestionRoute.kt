@@ -10,12 +10,10 @@ package com.ssafy.mobile.feature.quiz.presentation
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -45,14 +43,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ssafy.mobile.core.ui.components.AppBadge
-import com.ssafy.mobile.core.ui.components.AppBadgeTone
 import com.ssafy.mobile.core.ui.components.AppNetworkImage
 import com.ssafy.mobile.feature.quiz.domain.model.QuizAnswer
 import com.ssafy.mobile.feature.quiz.domain.model.QuizQuestion
 import com.ssafy.mobile.feature.quiz.domain.model.QuizRetryPolicy
 import com.ssafy.mobile.feature.quiz.domain.model.QuizSessionState
-import kotlin.math.roundToInt
 
 @Composable
 fun quizQuestionRoute(
@@ -210,9 +205,19 @@ private fun QuizQuestionContent(
     Column(
         modifier =
             modifier
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color(0xFFD7FFF1),
+                                Color(0xFFE8FFF8),
+                                Color(0xFFFDFDF9),
+                            ),
+                    ),
+                ).verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp, vertical = 22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         QuizProgressHeader(
             currentQuestionNumber = state.currentQuestionNumber,
@@ -223,6 +228,7 @@ private fun QuizQuestionContent(
         AnimatedContent(
             targetState = question,
             label = "quizQuestionContent",
+            modifier = Modifier.fillMaxWidth(),
         ) { currentQuestion ->
             QuizQuestionCard(question = currentQuestion)
         }
@@ -255,32 +261,33 @@ private fun QuizProgressHeader(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppBadge(
-                text = "문제 $currentQuestionNumber / $totalQuestionCount",
-                tone = AppBadgeTone.Primary,
-            )
-            AppBadge(
-                text = "${(animatedProgress * PERCENT_MAX).roundToInt()}%",
-                tone = AppBadgeTone.Neutral,
-            )
-        }
+        Text(
+            text = "$currentQuestionNumber / $totalQuestionCount",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black,
+            color = Color(0xFF263238),
+        )
 
-        LinearProgressIndicator(
-            progress = { animatedProgress },
+        Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.72f)
                     .height(10.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        )
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color.White.copy(alpha = 0.94f)),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth(fraction = animatedProgress)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color(0xFF73CDED)),
+            )
+        }
     }
 }
 
@@ -291,40 +298,26 @@ private fun QuizQuestionCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(32.dp),
+        color = Color.White.copy(alpha = 0.98f),
         contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 1.dp,
-        border =
-            BorderStroke(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-            ),
+        shadowElevation = 16.dp,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1.12f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors =
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
-                                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f),
-                                    ),
-                            ),
-                        ),
+                        .aspectRatio(1.06f)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFFF8FFFC)),
                 contentAlignment = Alignment.Center,
             ) {
                 AppNetworkImage(
@@ -378,7 +371,7 @@ private fun QuizImagePlaceholder(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "그림 카드",
+            text = "말하기 카드",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -396,26 +389,16 @@ private fun QuizTargetWord(
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        AppBadge(
-            text = "그림을 보고 말해요",
-            tone = AppBadgeTone.Primary,
-        )
         Text(
             text = targetText,
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = Color(0xFF242424),
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = "준비되면 아래 버튼을 눌러 말해 주세요",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -482,7 +465,8 @@ private fun QuizActionArea(
             modifier
                 .fillMaxWidth()
                 .animateContentSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (answer != null) {
             QuizStarResultCard(
@@ -499,5 +483,4 @@ private fun QuizActionArea(
     }
 }
 
-private const val PERCENT_MAX = 100
 private const val FIRST_LETTER_COUNT = 1

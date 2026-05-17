@@ -21,6 +21,7 @@ import com.ssafy.mobile.feature.learning.presentation.category.LearningCategoryR
 import com.ssafy.mobile.feature.learning.presentation.wordlist.LearningWordListRoute
 import com.ssafy.mobile.feature.login.presentation.LoginRoute
 import com.ssafy.mobile.feature.mypage.presentation.AccountEditRoute
+import com.ssafy.mobile.feature.mypage.presentation.AiModelSettingsRoute
 import com.ssafy.mobile.feature.mypage.presentation.AppSettingsRoute
 import com.ssafy.mobile.feature.mypage.presentation.MyPageRoute
 import com.ssafy.mobile.feature.quiz.presentation.QuizResultRoute
@@ -120,28 +121,23 @@ fun MobileNavHost(
                 navController = navController,
                 onNavigateToHome = {
                     val previousRoute = navController.previousBackStackEntry?.destination?.route
-                    val poppedToReport =
-                        if (previousRoute == Screen.ReportHome.route) {
-                            navController.popBackStack(
-                                route = Screen.ReportHome.route,
-                                inclusive = false,
-                            )
-                        } else {
-                            false
+                    val returnRoute =
+                        when (previousRoute) {
+                            Screen.MyPage.route -> Screen.MyPage.route
+                            Screen.ReportHome.route -> Screen.ReportHome.route
+                            else -> Screen.Home.route
                         }
 
-                    if (!poppedToReport) {
-                        val poppedToHome =
-                            navController.popBackStack(
-                                route = Screen.Home.route,
-                                inclusive = false,
-                            )
+                    val poppedToReturnRoute =
+                        navController.popBackStack(
+                            route = returnRoute,
+                            inclusive = false,
+                        )
 
-                        if (!poppedToHome) {
-                            navController.navigate(Screen.Home.route) {
-                                popUpTo(Screen.ChildSelect.route) { inclusive = true }
-                                launchSingleTop = true
-                            }
+                    if (!poppedToReturnRoute) {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.ChildSelect.route) { inclusive = true }
+                            launchSingleTop = true
                         }
                     }
                 },
@@ -291,6 +287,12 @@ fun MobileNavHost(
                 onNavigateToAccountEdit = {
                     navController.navigate(Screen.AccountEdit.route)
                 },
+                onNavigateToChildSelect = {
+                    navController.navigate(Screen.ChildSelect.route)
+                },
+                onNavigateToAiModelSettings = {
+                    navController.navigate(Screen.AiModelSettings.route)
+                },
                 onLogoutSuccess = {
                     navController.navigate(Screen.GuestConversation.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
@@ -312,6 +314,13 @@ fun MobileNavHost(
 
         composable(Screen.AccountEdit.route) {
             AccountEditRoute(
+                onNavigateBack = { navController.popBackStack() },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Screen.AiModelSettings.route) {
+            AiModelSettingsRoute(
                 onNavigateBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )

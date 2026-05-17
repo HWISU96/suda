@@ -1,14 +1,19 @@
+@file:Suppress("FunctionNaming", "LongMethod", "MagicNumber", "TooManyFunctions")
+
 package com.ssafy.mobile.feature.quiz.presentation
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,35 +21,35 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ssafy.mobile.core.ui.components.AppBadge
-import com.ssafy.mobile.core.ui.components.AppBadgeTone
-import com.ssafy.mobile.core.ui.components.AppPrimaryButton
-import com.ssafy.mobile.core.ui.components.AppSecondaryButton
+import com.ssafy.mobile.core.ui.components.ChunkyButton
+import com.ssafy.mobile.core.ui.components.ChunkyButtonTone
+import com.ssafy.mobile.core.ui.components.SudaMascot
+import com.ssafy.mobile.core.ui.components.SudaMascotImage
+import com.ssafy.mobile.core.ui.theme.SudaWarning
 import com.ssafy.mobile.feature.learning.domain.model.LearningQuizResult
-import com.ssafy.mobile.feature.learning.domain.model.LearningQuizResultAnswer
-import java.util.Locale
+import kotlinx.coroutines.delay
 
 @Composable
 fun QuizResultRoute(
@@ -64,7 +69,6 @@ fun QuizResultRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QuizResultScreen(
     uiState: QuizResultUiState,
@@ -75,17 +79,6 @@ private fun QuizResultScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "퀴즈 결과",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-            )
-        },
     ) { padding ->
         Box(
             modifier =
@@ -97,7 +90,7 @@ private fun QuizResultScreen(
                 is QuizResultUiState.Loading -> {
                     QuizMessageState(
                         title = "결과를 불러오는 중이에요",
-                        description = "잠시만 기다려 주세요.",
+                        description = "오늘 모은 별을 정리하고 있어요.",
                         visual = QuizMessageVisual.Loading,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -139,158 +132,80 @@ private fun QuizResultContent(
         cue = QuizFeedbackCue.Complete,
     )
 
-    Column(modifier = modifier) {
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            item {
-                QuizResultHeaderCard(
-                    correctCount = result.correctCount,
-                    totalCount = result.totalQuestionCount,
-                    totalStar = result.totalStar,
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "문항별 결과",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    AppBadge(
-                        text = "${result.correctCount} / ${result.totalQuestionCount}",
-                        tone = AppBadgeTone.Primary,
-                    )
+    Box(
+        modifier =
+            modifier.background(
+                Brush.verticalGradient(
+                    colors =
+                        listOf(
+                            Color(0xFFD7FFF1),
+                            Color(0xFFE8FFF8),
+                            Color(0xFFFDFDF9),
+                        ),
+                ),
+            ),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 34.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item {
+                    QuizResultHeaderCard(result = result)
                 }
             }
 
-            itemsIndexed(result.answers) { index, answer ->
-                QuizAnswerResultItem(
-                    answer = answer,
-                    questionNumber = index + 1,
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            tonalElevation = 8.dp,
-            shadowElevation = 8.dp,
-        ) {
-            Column(
-                modifier =
-                    Modifier
-                        .padding(24.dp)
-                        .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AppPrimaryButton(
-                    text = "한 번 더 풀기",
-                    onClick = onRestartQuiz,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                AppSecondaryButton(
-                    text = "학습 홈으로",
-                    onClick = onNavigateToHome,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            QuizResultBottomActions(
+                onRestartQuiz = onRestartQuiz,
+                onNavigateToHome = onNavigateToHome,
+            )
         }
     }
 }
 
 @Composable
-private fun QuizResultHeaderCard(
-    correctCount: Int,
-    totalCount: Int,
-    totalStar: Int,
-) {
-    val accuracyRate =
-        if (totalCount == 0) {
-            0.0
-        } else {
-            correctCount.toDouble() / totalCount.toDouble() * PERCENT_MAX
-        }
-
+private fun QuizResultHeaderCard(result: LearningQuizResult) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.48f),
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        tonalElevation = 0.dp,
-        border =
-            BorderStroke(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-            ),
+        shape = RoundedCornerShape(34.dp),
+        color = Color.White.copy(alpha = 0.98f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shadowElevation = 10.dp,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(
-                            colors =
-                                listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
-                                    Color.Transparent,
-                                ),
-                        ),
-                    ).padding(20.dp),
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            QuizResultStarMedal(totalStar = totalStar)
-            AppBadge(
-                text = "퀴즈 완료",
-                tone = AppBadgeTone.Success,
+            SudaMascotImage(
+                mascot = SudaMascot.Success3Star,
+                contentDescription = null,
+                modifier = Modifier.size(150.dp),
             )
             Text(
-                text = "오늘도 잘했어요!",
-                style = MaterialTheme.typography.headlineSmall,
+                text = "말놀이 완료!",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center,
             )
-            QuizResultAccuracyBar(accuracyRate = accuracyRate)
+            AnimatedMedalStars(starCount = COMPLETION_DECORATION_STAR_COUNT)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 ResultStatItem(
-                    label = "맞힌 문제",
-                    value = "$correctCount / $totalCount",
-                    badgeText = "정답",
-                    tone = AppBadgeTone.Success,
+                    label = "배운 단어",
+                    value = "${result.correctCount} / ${result.totalQuestionCount}",
                 )
-                Box(
-                    modifier =
-                        Modifier
-                            .width(1.dp)
-                            .height(44.dp)
-                            .background(
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                            ),
-                )
+                VerticalDivider()
                 ResultStatItem(
-                    label = "모은 별",
-                    value = "★ $totalStar",
-                    badgeText = "별점",
-                    tone = AppBadgeTone.Primary,
+                    label = "말한 단어",
+                    value = "${result.answers.size}",
                 )
             }
         }
@@ -298,70 +213,53 @@ private fun QuizResultHeaderCard(
 }
 
 @Composable
-private fun QuizResultStarMedal(totalStar: Int) {
-    Surface(
-        modifier = Modifier.size(88.dp),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        contentColor = MaterialTheme.colorScheme.primary,
-        tonalElevation = 2.dp,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = "★",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-            )
-            Text(
-                text = "$totalStar",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-            )
+private fun AnimatedMedalStars(starCount: Int) {
+    var visibleStar by remember(starCount) { mutableIntStateOf(0) }
+    val infiniteTransition = rememberInfiniteTransition(label = "resultStarPulse")
+    val pulse by
+        infiniteTransition.animateFloat(
+            initialValue = 0.96f,
+            targetValue = 1.06f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = 760),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "resultStarPulseScale",
+        )
+
+    LaunchedEffect(starCount) {
+        visibleStar = 0
+        repeat(starCount.coerceIn(0, COMPLETION_DECORATION_STAR_COUNT)) { index ->
+            delay(STAR_REVEAL_DELAY_MILLIS)
+            visibleStar = index + 1
         }
     }
-}
 
-@Composable
-private fun QuizResultAccuracyBar(accuracyRate: Double) {
-    val animatedAccuracy by animateFloatAsState(
-        targetValue = (accuracyRate / PERCENT_MAX).toFloat().coerceIn(0f, 1f),
-        label = "quizResultAccuracy",
-    )
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "정답률",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f),
-            )
-            Text(
-                text = String.format(Locale.KOREA, "%.0f%%", accuracyRate),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+        repeat(COMPLETION_DECORATION_STAR_COUNT) { index ->
+            val isVisible = index < visibleStar
+            AnimatedVisibility(visible = isVisible) {
+                Surface(
+                    modifier = Modifier.size(42.dp).scale(pulse),
+                    shape = CircleShape,
+                    color = SudaWarning.copy(alpha = if (isVisible) 1f else 0.25f),
+                    contentColor = Color.White,
+                    shadowElevation = 8.dp,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "★",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
+                }
+            }
         }
-        LinearProgressIndicator(
-            progress = { animatedAccuracy },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        )
     }
 }
 
@@ -369,167 +267,61 @@ private fun QuizResultAccuracyBar(accuracyRate: Double) {
 private fun ResultStatItem(
     label: String,
     value: String,
-    badgeText: String,
-    tone: AppBadgeTone,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        AppBadge(
-            text = badgeText,
-            tone = tone,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
 
 @Composable
-private fun QuizAnswerResultItem(
-    answer: LearningQuizResultAnswer,
-    questionNumber: Int,
+private fun VerticalDivider() {
+    Box(
+        modifier =
+            Modifier
+                .width(1.dp)
+                .height(48.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+    )
+}
+
+@Composable
+private fun QuizResultBottomActions(
+    onRestartQuiz: () -> Unit,
+    onNavigateToHome: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color =
-            if (answer.isCorrect) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
-            } else {
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.28f)
-            },
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border =
-            BorderStroke(
-                width = 1.dp,
-                color =
-                    if (answer.isCorrect) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                    } else {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
-                    },
-            ),
+        color = Color.Transparent,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 22.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
+            ChunkyButton(
+                text = "다른 주제 하기",
+                onClick = onNavigateToHome,
+                tone = ChunkyButtonTone.Primary,
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppBadge(
-                    text = "${questionNumber}번",
-                    tone = AppBadgeTone.Neutral,
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                AppBadge(
-                    text = if (answer.isCorrect) "잘했어요" else "아쉬워요",
-                    tone = if (answer.isCorrect) AppBadgeTone.Success else AppBadgeTone.Error,
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Text(
-                    text = answer.targetText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                QuizAnswerStarRating(star = answer.star)
-            }
-
-            QuizAnswerRecognizedText(recognizedText = answer.recognizedText)
-
-            if (!answer.feedback.isNullOrBlank()) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.74f),
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ) {
-                    Text(
-                        text = answer.feedback,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuizAnswerStarRating(star: Int) {
-    val normalizedStar = star.coerceIn(0, MAX_STAR_COUNT)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        repeat(normalizedStar) {
-            Text(
-                text = "★",
-                color = MaterialTheme.colorScheme.primary,
             )
-        }
-        repeat(MAX_STAR_COUNT - normalizedStar) {
-            Text(
-                text = "☆",
-                color = Color.Gray.copy(alpha = 0.3f),
+            ChunkyButton(
+                text = "다시 하기",
+                onClick = onRestartQuiz,
+                tone = ChunkyButtonTone.Secondary,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
 }
 
-@Composable
-private fun QuizAnswerRecognizedText(recognizedText: String?) {
-    val hasRecognizedText = !recognizedText.isNullOrBlank()
-    val displayText = if (hasRecognizedText) recognizedText.orEmpty() else "음성 인식 결과가 없어요"
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = "내가 말한 답",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = displayText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight =
-                if (hasRecognizedText) {
-                    FontWeight.Medium
-                } else {
-                    FontWeight.Normal
-                },
-            color =
-                if (hasRecognizedText) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                },
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-private const val MAX_STAR_COUNT = 3
-private const val PERCENT_MAX = 100.0
+private const val COMPLETION_DECORATION_STAR_COUNT = 5
+private const val STAR_REVEAL_DELAY_MILLIS = 180L

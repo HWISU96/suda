@@ -55,7 +55,7 @@ data class AiModelUiState(
     val progressPercent: Int? = null,
     val speedBytesPerSecond: Long? = null,
     val remainingMillis: Long? = null,
-    val message: String = "모델 파일이 아직 준비되지 않았습니다.",
+    val message: String = "모델 파일이 아직 준비되지 않았어요.",
 ) {
     val isDownloaded: Boolean
         get() = status == AiModelDownloadStatus.Ready || status == AiModelDownloadStatus.Success
@@ -104,7 +104,7 @@ class MyPageViewModel
                         progressPercent = 100,
                         speedBytesPerSecond = null,
                         remainingMillis = null,
-                        message = "온디바이스 AI 모델이 준비되었습니다.",
+                        message = "온디바이스 AI 모델이 준비됐어요.",
                     )
             } else {
                 _aiModelState.value =
@@ -116,9 +116,9 @@ class MyPageViewModel
                         remainingMillis = null,
                         message =
                             if (baseState.downloadUrl.isBlank()) {
-                                "다운로드 URL이 설정되지 않았습니다. .env에 SLLM_MODEL_DOWNLOAD_URL을 추가해 주세요."
+                                "다운로드 URL이 설정되지 않았어요. .env에 SLLM_MODEL_DOWNLOAD_URL을 추가해 주세요."
                             } else {
-                                "모델을 다운로드하면 소통 기능에서 온디바이스 문장 변환을 사용할 수 있습니다."
+                                "모델을 다운로드하면 소통 기능에서 온디바이스 문장 변환을 사용할 수 있어요."
                             },
                     )
             }
@@ -136,7 +136,7 @@ class MyPageViewModel
                 _aiModelState.value =
                     current.copy(
                         status = AiModelDownloadStatus.Failed,
-                        message = "이 기기에서 다운로드 관리자를 사용할 수 없습니다.",
+                        message = "이 기기에서 다운로드 관리자를 사용할 수 없어요.",
                     )
                 return
             }
@@ -171,7 +171,8 @@ class MyPageViewModel
                                 status = AiModelDownloadStatus.Failed,
                                 speedBytesPerSecond = null,
                                 remainingMillis = null,
-                                message = "모델 다운로드를 시작하지 못했습니다: ${throwable.message.orEmpty()}",
+                                message =
+                                    "모델 다운로드를 시작하지 못했어요. ${throwable.message.orEmpty()}",
                             )
                     } finally {
                         if (activeDownloadId == downloadId) {
@@ -192,7 +193,7 @@ class MyPageViewModel
                     progressPercent = null,
                     speedBytesPerSecond = null,
                     remainingMillis = null,
-                    message = "모델 다운로드를 취소했습니다. 필요하면 다시 다운로드할 수 있습니다.",
+                    message = "모델 다운로드를 취소했어요. 필요하면 다시 다운로드할 수 있어요.",
                 )
         }
 
@@ -215,9 +216,9 @@ class MyPageViewModel
                         remainingMillis = null,
                         message =
                             if (deleted) {
-                                "온디바이스 AI 모델을 삭제했습니다. 다시 사용하려면 다운로드해 주세요."
+                                "온디바이스 AI 모델을 삭제했어요. 다시 사용하려면 다운로드해 주세요."
                             } else {
-                                "삭제할 모델 파일을 찾지 못했습니다."
+                                "삭제할 모델 파일을 찾지 못했어요."
                             },
                     )
             }
@@ -240,9 +241,9 @@ class MyPageViewModel
                     @Suppress("TooGenericExceptionCaught")
                     e: Exception,
                 ) {
-                    Log.e("MyPageViewModel", "Logout failed", e)
+                    Log.e(TAG, "Logout failed", e)
                     _logoutState.value =
-                        MyPageLogoutState.Error("로그아웃하지 못했습니다. 다시 시도해 주세요.")
+                        MyPageLogoutState.Error("로그아웃하지 못했어요. 다시 시도해 주세요.")
                 }
             }
         }
@@ -314,7 +315,7 @@ class MyPageViewModel
                     progressPercent = 0,
                     speedBytesPerSecond = null,
                     remainingMillis = null,
-                    message = "모델을 다운로드하고 있습니다.",
+                    message = "모델을 다운로드하고 있어요.",
                 )
 
             var shouldMonitor = true
@@ -397,10 +398,10 @@ class MyPageViewModel
                         }
                     val message =
                         when (status) {
-                            AiModelDownloadStatus.Success -> "모델 다운로드가 완료되었습니다."
+                            AiModelDownloadStatus.Success -> "모델 다운로드가 완료됐어요."
                             AiModelDownloadStatus.Failed ->
-                                "모델 다운로드에 실패했습니다. 네트워크 상태와 저장 공간을 확인해 주세요."
-                            else -> "모델을 다운로드하고 있습니다."
+                                "모델 다운로드에 실패했어요. 네트워크 상태와 저장 공간을 확인해 주세요."
+                            else -> "모델을 다운로드하고 있어요."
                         }
 
                     DownloadSnapshot(
@@ -502,6 +503,7 @@ class MyPageViewModel
         )
 
         private companion object {
+            const val TAG = "MyPageViewModel"
             const val DOWNLOAD_POLL_INTERVAL_MILLIS = 700L
             const val PERCENT_MULTIPLIER = 100L
             const val MILLIS_PER_SECOND = 1000L

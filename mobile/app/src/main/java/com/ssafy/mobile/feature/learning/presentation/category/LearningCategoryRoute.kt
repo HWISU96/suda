@@ -1,22 +1,31 @@
+@file:Suppress("FunctionNaming", "LongMethod", "MagicNumber", "TooManyFunctions")
+
 package com.ssafy.mobile.feature.learning.presentation.category
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -31,32 +40,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ssafy.mobile.core.ui.components.AppBadge
 import com.ssafy.mobile.core.ui.components.AppBadgeTone
-import com.ssafy.mobile.core.ui.components.AppCard
 import com.ssafy.mobile.core.ui.components.AppInlineErrorText
 import com.ssafy.mobile.core.ui.components.AppLoadingIndicator
 import com.ssafy.mobile.core.ui.components.AppNetworkImage
 import com.ssafy.mobile.core.ui.components.AppPrimaryButton
+import com.ssafy.mobile.core.ui.components.SudaMascot
+import com.ssafy.mobile.core.ui.components.SudaMascotImage
 import com.ssafy.mobile.core.ui.feedback.AppEmptyState
 import com.ssafy.mobile.feature.learning.domain.model.DEFAULT_LEARNING_DIFFICULTY
 import com.ssafy.mobile.feature.learning.domain.model.LearningCategory
-
-private const val GRID_COLUMNS = 2
-private val GRID_HORIZONTAL_PADDING = 20.dp
-private val GRID_VERTICAL_PADDING = 8.dp
-private val GRID_SPACING = 16.dp
-private val HEADER_HORIZONTAL_PADDING = 24.dp
-private val HEADER_VERTICAL_PADDING = 32.dp
-private val CARD_PADDING = 14.dp
-private const val ASPECT_RATIO_SQUARE = 1f
-private val ACTION_BUTTON_MIN_HEIGHT = 44.dp
 
 @Composable
 fun LearningCategoryRoute(
@@ -93,58 +95,43 @@ internal fun LearningCategoryScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            HeaderSection()
+        Box(modifier = Modifier.fillMaxSize()) {
+            LearningBackground()
+            Column(modifier = Modifier.fillMaxSize()) {
+                LearningMapHeader(
+                    selectedDifficulty = selectedDifficulty,
+                    onDifficultyChange = onDifficultyChange,
+                )
 
-            DifficultySelectionSection(
-                selectedDifficulty = selectedDifficulty,
-                onDifficultyChange = onDifficultyChange,
-                modifier = Modifier.padding(horizontal = HEADER_HORIZONTAL_PADDING),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Box(
-                modifier = Modifier.weight(1f),
-            ) {
-                when (uiState) {
-                    is LearningCategoryUiState.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            AppLoadingIndicator(message = "학습 주제를 불러오고 있어요.")
+                Box(modifier = Modifier.weight(1f)) {
+                    when (uiState) {
+                        is LearningCategoryUiState.Loading -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                AppLoadingIndicator(message = "학습 주제를 불러오고 있어요")
+                            }
                         }
-                    }
 
-                    is LearningCategoryUiState.Success -> {
-                        CategoryGrid(
-                            categories = uiState.categories,
-                            onCategoryClick = onCategoryClick,
-                            onQuizClick = onQuizClick,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                        is LearningCategoryUiState.Success -> {
+                            LearningMap(
+                                categories = uiState.categories,
+                                onCategoryClick = onCategoryClick,
+                                onQuizClick = onQuizClick,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
 
-                    is LearningCategoryUiState.Empty -> {
-                        AppEmptyState(message = "준비된 학습 주제가 없습니다.")
-                    }
+                        is LearningCategoryUiState.Empty -> {
+                            AppEmptyState(message = "준비된 학습 주제가 없어요.")
+                        }
 
-                    is LearningCategoryUiState.Error -> {
-                        Column(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(HEADER_HORIZONTAL_PADDING),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            AppInlineErrorText(text = uiState.message)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            AppPrimaryButton(
-                                text = "다시 시도",
-                                onClick = onRetryClick,
+                        is LearningCategoryUiState.Error -> {
+                            LearningCategoryErrorState(
+                                message = uiState.message,
+                                onRetryClick = onRetryClick,
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }
@@ -155,58 +142,92 @@ internal fun LearningCategoryScreen(
 }
 
 @Composable
-private fun HeaderSection() {
+private fun LearningBackground() {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
+                                MaterialTheme.colorScheme.background,
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.18f),
+                            ),
+                    ),
+                ),
+    )
+}
+
+@Composable
+private fun LearningMapHeader(
+    selectedDifficulty: String,
+    onDifficultyChange: (String) -> Unit,
+) {
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .animateContentSize()
-                .padding(
-                    horizontal = HEADER_HORIZONTAL_PADDING,
-                    vertical = HEADER_VERTICAL_PADDING,
-                ),
+                .padding(horizontal = 24.dp, vertical = 24.dp),
     ) {
-        AppBadge(
-            text = "학습",
-            tone = AppBadgeTone.Primary,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "어떤 주제로 배워볼까요?",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "오늘 배울 단어 주제를 골라 주세요.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                AppBadge(
+                    text = "오늘의 학습",
+                    tone = AppBadgeTone.Success,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "어떤 주제로 떠나볼까요?",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "단어를 익히고 바로 퀴즈로 별을 모아보세요.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            SudaMascotImage(
+                mascot = SudaMascot.Default,
+                contentDescription = null,
+                modifier = Modifier.size(108.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(18.dp))
+        DifficultySelectionSection(
+            selectedDifficulty = selectedDifficulty,
+            onDifficultyChange = onDifficultyChange,
         )
     }
 }
 
 @Composable
-private fun CategoryGrid(
+private fun LearningMap(
     categories: List<LearningCategory>,
     onCategoryClick: (Long, String) -> Unit,
     onQuizClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(GRID_COLUMNS),
-        contentPadding =
-            PaddingValues(
-                horizontal = GRID_HORIZONTAL_PADDING,
-                vertical = GRID_VERTICAL_PADDING,
-            ),
-        horizontalArrangement = Arrangement.spacedBy(GRID_SPACING),
-        verticalArrangement = Arrangement.spacedBy(GRID_SPACING),
+    LazyColumn(
         modifier = modifier,
+        contentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(categories, key = { it.categoryId }) { category ->
-            CategoryCard(
+        itemsIndexed(categories, key = { _, category -> category.categoryId }) { index, category ->
+            LearningMapStep(
                 category = category,
+                stepNumber = index + 1,
+                isCurrent = index == 0,
+                alignEnd = index % 2 == 1,
+                hasNext = index < categories.lastIndex,
                 onWordListClick = { onCategoryClick(category.categoryId, category.name) },
                 onQuizClick = { onQuizClick(category.categoryId) },
             )
@@ -215,69 +236,131 @@ private fun CategoryGrid(
 }
 
 @Composable
-private fun CategoryCard(
+private fun LearningMapStep(
     category: LearningCategory,
+    stepNumber: Int,
+    isCurrent: Boolean,
+    alignEnd: Boolean,
+    hasNext: Boolean,
     onWordListClick: () -> Unit,
     onQuizClick: () -> Unit,
 ) {
-    AppCard(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .animateContentSize(),
-        contentPadding = PaddingValues(CARD_PADDING),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
+        ) {
+            LearningNodeCard(
+                category = category,
+                stepNumber = stepNumber,
+                isCurrent = isCurrent,
+                onWordListClick = onWordListClick,
+                onQuizClick = onQuizClick,
+                modifier = Modifier.fillMaxWidth(0.78f),
+            )
+        }
+        if (hasNext) {
+            LearningPathConnector(alignEnd = alignEnd)
+        }
+    }
+}
+
+@Composable
+private fun LearningNodeCard(
+    category: LearningCategory,
+    stepNumber: Int,
+    isCurrent: Boolean,
+    onWordListClick: () -> Unit,
+    onQuizClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "currentLearningNode")
+    val currentScale by
+        infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = if (isCurrent) 1.035f else 1f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation = tween(durationMillis = 900),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+            label = "currentLearningNodeScale",
+        )
+
+    Surface(
+        modifier = modifier.scale(if (isCurrent) currentScale else 1f),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = if (isCurrent) 4.dp else 1.dp,
+        shadowElevation = if (isCurrent) 10.dp else 3.dp,
+        border =
+            BorderStroke(
+                width = if (isCurrent) 2.dp else 1.dp,
+                color =
+                    if (isCurrent) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.48f)
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    },
+            ),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            AppNetworkImage(
-                imageUrl = category.thumbnailUrl,
-                contentDescription = category.name,
-                fallbackText = category.name,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(ASPECT_RATIO_SQUARE)
-                        .clip(RoundedCornerShape(8.dp)),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = category.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-            )
-
-            if (!category.description.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = category.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                LearningCategoryActionButton(
-                    text = "단어장",
-                    tone = LearningCategoryActionTone.Soft,
-                    onClick = onWordListClick,
+                CategoryThumbnail(
+                    category = category,
                 )
-                LearningCategoryActionButton(
-                    text = "퀴즈",
-                    tone = LearningCategoryActionTone.Filled,
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        AppBadge(
+                            text = if (isCurrent) "지금 추천" else "STEP $stepNumber",
+                            tone = if (isCurrent) AppBadgeTone.Success else AppBadgeTone.Neutral,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = category.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (!category.description.isNullOrBlank()) {
+                        Text(
+                            text = category.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LearningPillButton(
+                    text = "단어 보기",
+                    filled = false,
+                    onClick = onWordListClick,
+                    modifier = Modifier.weight(1f),
+                )
+                LearningPillButton(
+                    text = "퀴즈 도전",
+                    filled = true,
                     onClick = onQuizClick,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -285,59 +368,86 @@ private fun CategoryCard(
 }
 
 @Composable
-private fun LearningCategoryActionButton(
-    text: String,
-    tone: LearningCategoryActionTone,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = MaterialTheme.colorScheme
-    val isFilled = tone == LearningCategoryActionTone.Filled
-    val containerColor =
-        if (isFilled) {
-            colors.primary
-        } else {
-            colors.primaryContainer.copy(alpha = 0.42f)
-        }
-    val contentColor =
-        if (isFilled) {
-            colors.onPrimary
-        } else {
-            colors.primary
-        }
-
-    Surface(
-        onClick = onClick,
+private fun CategoryThumbnail(category: LearningCategory) {
+    Box(
         modifier =
-            modifier
-                .fillMaxWidth()
-                .heightIn(min = ACTION_BUTTON_MIN_HEIGHT)
-                .animateContentSize(),
-        shape = RoundedCornerShape(8.dp),
-        color = containerColor,
-        contentColor = contentColor,
-        tonalElevation = if (isFilled) 2.dp else 0.dp,
-        shadowElevation = if (isFilled) 3.dp else 0.dp,
-        border =
-            if (isFilled) {
-                null
-            } else {
-                BorderStroke(1.dp, colors.primary.copy(alpha = 0.18f))
-            },
+            Modifier
+                .size(86.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors =
+                            listOf(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.86f),
+                            ),
+                    ),
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        AppNetworkImage(
+            imageUrl = category.thumbnailUrl,
+            contentDescription = category.name,
+            fallbackText = category.name,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize().padding(8.dp),
+        )
+    }
+}
+
+@Composable
+private fun LearningPathConnector(alignEnd: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(36.dp),
+        horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
     ) {
         Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .fillMaxWidth(0.78f)
+                    .height(36.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            repeat(3) { index ->
+                Box(
+                    modifier =
+                        Modifier
+                            .offset(y = ((index - 1) * 10).dp)
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LearningPillButton(
+    text: String,
+    filled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(999.dp),
+        color = if (filled) colors.primary else colors.primaryContainer.copy(alpha = 0.52f),
+        contentColor = if (filled) colors.onPrimary else colors.onPrimaryContainer,
+        shadowElevation = if (filled) 4.dp else 0.dp,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Black,
                 maxLines = 1,
-                overflow = TextOverflow.Clip,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -356,49 +466,66 @@ private fun DifficultySelectionSection(
             DifficultyOption("HARD", "어려움", AppBadgeTone.Warning),
         )
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .animateContentSize(),
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+        tonalElevation = 1.dp,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = "난이도 선택",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            difficulties
-                .firstOrNull { it.value == selectedDifficulty }
-                ?.let { selected ->
-                    AppBadge(
-                        text = selected.label,
-                        tone = selected.tone,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "난이도 선택",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                difficulties.firstOrNull { it.value == selectedDifficulty }?.let { selected ->
+                    AppBadge(text = selected.label, tone = selected.tone)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                difficulties.forEach { option ->
+                    FilterChip(
+                        selected = selectedDifficulty == option.value,
+                        onClick = { onDifficultyChange(option.value) },
+                        label = { Text(option.label) },
+                        colors =
+                            FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
                     )
                 }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            difficulties.forEach { option ->
-                FilterChip(
-                    selected = selectedDifficulty == option.value,
-                    onClick = { onDifficultyChange(option.value) },
-                    label = { Text(option.label) },
-                    colors =
-                        FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                )
             }
         }
+    }
+}
+
+@Composable
+private fun LearningCategoryErrorState(
+    message: String,
+    onRetryClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        AppInlineErrorText(text = message)
+        Spacer(modifier = Modifier.height(16.dp))
+        AppPrimaryButton(
+            text = "다시 시도",
+            onClick = onRetryClick,
+        )
     }
 }
 
@@ -407,8 +534,3 @@ private data class DifficultyOption(
     val label: String,
     val tone: AppBadgeTone,
 )
-
-private enum class LearningCategoryActionTone {
-    Soft,
-    Filled,
-}

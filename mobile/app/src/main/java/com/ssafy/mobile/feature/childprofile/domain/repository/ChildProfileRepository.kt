@@ -8,6 +8,7 @@ interface ChildProfileRepository {
     suspend fun createChildProfile(
         name: String,
         birthDate: String,
+        avatarKey: String,
     )
 
     suspend fun getChildProfile(childId: Long): ChildProfile
@@ -16,6 +17,7 @@ interface ChildProfileRepository {
         childId: Long,
         name: String?,
         birthDate: String?,
+        avatarKey: String?,
     )
 
     suspend fun deleteChildProfile(childId: Long)

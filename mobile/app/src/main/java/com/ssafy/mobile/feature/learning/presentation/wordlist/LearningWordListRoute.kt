@@ -1,29 +1,41 @@
+@file:Suppress("LongMethod", "MagicNumber", "TooManyFunctions")
+
 package com.ssafy.mobile.feature.learning.presentation.wordlist
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,15 +43,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ssafy.mobile.core.ui.components.AppBadge
-import com.ssafy.mobile.core.ui.components.AppBadgeTone
-import com.ssafy.mobile.core.ui.components.AppCard
 import com.ssafy.mobile.core.ui.components.AppInlineErrorText
-import com.ssafy.mobile.core.ui.components.AppLoadingIndicator
 import com.ssafy.mobile.core.ui.components.AppNetworkImage
-import com.ssafy.mobile.core.ui.components.AppPrimaryButton
-import com.ssafy.mobile.core.ui.components.AppSecondaryButton
-import com.ssafy.mobile.core.ui.feedback.AppEmptyState
+import com.ssafy.mobile.core.ui.components.ChunkyButton
+import com.ssafy.mobile.core.ui.components.ChunkyButtonTone
+import com.ssafy.mobile.core.ui.components.FlipCard
+import com.ssafy.mobile.core.ui.components.SudaMascot
+import com.ssafy.mobile.core.ui.components.SudaMascotImage
 import com.ssafy.mobile.feature.learning.domain.model.LearningWord
 
 @Composable
@@ -53,13 +63,11 @@ fun LearningWordListRoute(
 
     DisposableEffect(Unit) {
         onDispose {
-            // 화면 이탈 시 오디오 정지
             viewModel.stopAudio()
         }
     }
 
     LearningWordListScreen(
-        categoryName = viewModel.categoryName,
         uiState = uiState,
         onBackClick = onNavigateBack,
         actions =
@@ -86,7 +94,6 @@ internal data class WordLearningActions(
 
 @Composable
 internal fun LearningWordListScreen(
-    categoryName: String?,
     uiState: LearningWordListUiState,
     onBackClick: () -> Unit,
     actions: WordLearningActions,
@@ -96,49 +103,83 @@ internal fun LearningWordListScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            WordListHeader(
-                categoryName = categoryName ?: "단어 학습",
-                onBackClick = onBackClick,
-            )
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    Color(0xFFD7FFF1),
+                                    Color(0xFFE8FFF8),
+                                    Color(0xFFD2F7EC),
+                                ),
+                        ),
+                    ),
+        ) {
+            WordLearningSparkles()
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopLearningBar(
+                    uiState = uiState,
+                    onCloseClick = onBackClick,
+                )
 
-            Box(modifier = Modifier.weight(1f)) {
-                when (uiState) {
-                    is LearningWordListUiState.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            AppLoadingIndicator(message = "단어 카드를 준비하고 있어요.")
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 28.dp),
+                ) {
+                    when (uiState) {
+                        is LearningWordListUiState.Loading -> {
+                            WordListMessageState(
+                                mascot = SudaMascot.Loading,
+                                title = "단어 카드를 준비하고 있어요",
+                                description = "곧 말놀이를 시작할 수 있어요.",
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         }
-                    }
 
-                    is LearningWordListUiState.Success -> {
-                        WordLearningCard(
-                            state = uiState,
-                            actions = actions,
-                            modifier = Modifier.fillMaxSize().padding(24.dp),
-                        )
-                    }
+                        is LearningWordListUiState.Success -> {
+                            WordLearningCard(
+                                state = uiState,
+                                actions = actions,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
 
-                    is LearningWordListUiState.Empty -> {
-                        AppEmptyState(message = "준비된 단어가 없습니다.")
-                    }
+                        is LearningWordListUiState.Empty -> {
+                            WordListMessageState(
+                                mascot = SudaMascot.Empty,
+                                title = "준비된 단어가 없어요",
+                                description = "다른 주제를 골라볼까요?",
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
 
-                    is LearningWordListUiState.Error -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            AppInlineErrorText(text = uiState.message)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            AppPrimaryButton(
-                                text = "다시 시도",
-                                onClick = actions.onRetryClick,
+                        is LearningWordListUiState.Error -> {
+                            WordListErrorState(
+                                message = uiState.message,
+                                onRetryClick = actions.onRetryClick,
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }
+                }
+
+                if (uiState is LearningWordListUiState.Success) {
+                    WordNavigationControls(
+                        state = uiState,
+                        onPreviousClick = actions.onPreviousClick,
+                        onNextClick = actions.onNextClick,
+                        onStartQuiz = actions.onStartQuiz,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 28.dp, vertical = 18.dp),
+                    )
                 }
             }
         }
@@ -146,54 +187,88 @@ internal fun LearningWordListScreen(
 }
 
 @Composable
-private fun WordListHeader(
-    categoryName: String,
-    onBackClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun TopLearningBar(
+    uiState: LearningWordListUiState,
+    onCloseClick: () -> Unit,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .animateContentSize()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = onBackClick) {
-                Text(
-                    text = "← 뒤로",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+    val progress =
+        when (uiState) {
+            is LearningWordListUiState.Success -> {
+                if (uiState.words.isEmpty()) {
+                    0f
+                } else {
+                    (uiState.currentIndex + 1).toFloat() / uiState.words.size
+                }
             }
-            AppBadge(
-                text = "단어장",
-                tone = AppBadgeTone.Primary,
-            )
+            else -> 0f
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        label = "wordLearningProgress",
+    )
 
-        Text(
-            text = categoryName,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            onClick = onCloseClick,
+            modifier = Modifier.size(50.dp),
+            shape = RoundedCornerShape(15.dp),
+            color = Color(0xFFFFA2A2),
+            contentColor = Color(0xFFC95A5A),
+            shadowElevation = 6.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "×",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
 
-        Text(
-            text = "단어 카드를 넘기며 소리를 들어보세요.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+        Spacer(modifier = Modifier.width(18.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text =
+                    if (uiState is LearningWordListUiState.Success) {
+                        "${uiState.currentIndex + 1} / ${uiState.words.size}"
+                    } else {
+                        "0 / 0"
+                    },
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF263238),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.White.copy(alpha = 0.92f)),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth(fraction = animatedProgress)
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color(0xFF73CDED)),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(68.dp))
     }
 }
 
@@ -204,93 +279,201 @@ private fun WordLearningCard(
     modifier: Modifier = Modifier,
 ) {
     val word = state.currentWord ?: return
+    var isFlipped by remember { mutableStateOf(false) }
+
+    LaunchedEffect(word) {
+        isFlipped = false
+    }
 
     Column(
-        modifier = modifier.animateContentSize(),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AppCard(
+        AnimatedContent(
+            targetState = word,
+            label = "wordFlashCard",
             modifier =
                 Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
-        ) {
-            WordCardContent(
-                word = word,
-                audioState = state.audioState,
-                onPlayAudio = actions.onPlayAudio,
-                onStopAudio = actions.onStopAudio,
+                    .fillMaxWidth()
+                    .padding(top = 18.dp, bottom = 8.dp),
+        ) { currentWord ->
+            FlipCard(
+                isFlipped = isFlipped,
+                onFlip = { isFlipped = !isFlipped },
+                front = {
+                    FlashWordCardFront(
+                        word = currentWord,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                },
+                back = {
+                    FlashWordCardBack(
+                        word = currentWord,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        WordNavigationControls(
-            state = state,
-            onPreviousClick = actions.onPreviousClick,
-            onNextClick = actions.onNextClick,
-            onStartQuiz = actions.onStartQuiz,
+        AudioOnlyButton(
+            audioState = state.audioState,
+            onPlayClick = actions.onPlayAudio,
+            onStopClick = actions.onStopAudio,
         )
     }
 }
 
 @Composable
-private fun WordCardContent(
+private fun FlashWordCardFront(
     word: LearningWord,
-    audioState: AudioPlaybackState,
-    onPlayAudio: () -> Unit,
-    onStopAudio: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(30.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 16.dp,
     ) {
-        AppNetworkImage(
-            imageUrl = word.imageUrl,
-            contentDescription = word.word,
-            fallbackText = word.word,
+        Column(
             modifier =
                 Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp)),
-            placeholder = { WordFallback(word = word.word) },
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = word.word,
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-
-        if (!word.displayText.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(8.dp))
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            colors =
+                                listOf(
+                                    Color.White,
+                                    Color(0xFFF8FFFC),
+                                ),
+                        ),
+                    ).padding(horizontal = 24.dp, vertical = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                AppNetworkImage(
+                    imageUrl = word.imageUrl,
+                    contentDescription = word.word,
+                    fallbackText = word.word,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 230.dp),
+                    contentScale = ContentScale.Fit,
+                    placeholder = { WordFallback(word = word.word) },
+                )
+            }
+            Spacer(modifier = Modifier.height(22.dp))
             Text(
-                text = word.displayText,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = word.word,
+                style = MaterialTheme.typography.displayMedium,
+                color = Color(0xFF242424),
+                fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(32.dp))
+@Composable
+private fun FlashWordCardBack(
+    word: LearningWord,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(30.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shadowElevation = 10.dp,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            SudaMascotImage(
+                mascot = SudaMascot.WordCard,
+                contentDescription = null,
+                modifier = Modifier.size(164.dp),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = word.word,
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
 
-        AudioControlButton(
-            audioState = audioState,
-            onPlayClick = onPlayAudio,
-            onStopClick = onStopAudio,
-        )
+@Composable
+private fun AudioOnlyButton(
+    audioState: AudioPlaybackState,
+    onPlayClick: () -> Unit,
+    onStopClick: () -> Unit,
+) {
+    val isPlaying = audioState == AudioPlaybackState.Playing
+    val isLoading = audioState == AudioPlaybackState.Loading
 
-        Spacer(modifier = Modifier.height(16.dp))
+    Surface(
+        onClick = {
+            if (isPlaying) {
+                onStopClick()
+            } else {
+                onPlayClick()
+            }
+        },
+        enabled = !isLoading,
+        modifier = Modifier.size(88.dp),
+        shape = CircleShape,
+        color =
+            if (isPlaying) {
+                Color(0xFF57BFE4)
+            } else {
+                Color(0xFF7CD4F0)
+            },
+        contentColor =
+            if (isPlaying) {
+                Color.White
+            } else {
+                Color.White
+            },
+        shadowElevation = 10.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(30.dp),
+                    strokeWidth = 3.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Text(
+                    text = if (isPlaying) "■" else "🔊",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
     }
 }
 
@@ -300,34 +483,25 @@ private fun WordNavigationControls(
     onPreviousClick: () -> Unit,
     onNextClick: () -> Unit,
     onStartQuiz: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AppBadge(
-            text = "${state.currentIndex + 1} / ${state.words.size}",
-            tone = AppBadgeTone.Neutral,
+        ChunkyButton(
+            text = "‹ 이전",
+            onClick = onPreviousClick,
+            enabled = state.hasPrevious,
+            tone = ChunkyButtonTone.Secondary,
+            modifier = Modifier.weight(1f),
         )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            AppSecondaryButton(
-                text = "이전 단어",
-                onClick = onPreviousClick,
-                enabled = state.hasPrevious,
-                modifier = Modifier.weight(1f),
-            )
-            AppPrimaryButton(
-                text = if (state.hasNext) "다음 단어" else "퀴즈 풀기",
-                onClick = if (state.hasNext) onNextClick else onStartQuiz,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        ChunkyButton(
+            text = if (state.hasNext) "다음 ›" else "퀴즈 시작 ›",
+            onClick = if (state.hasNext) onNextClick else onStartQuiz,
+            tone = if (state.hasNext) ChunkyButtonTone.Warning else ChunkyButtonTone.Success,
+            modifier = Modifier.weight(1.45f),
+        )
     }
 }
 
@@ -345,20 +519,114 @@ private fun WordFallback(
                         colors =
                             listOf(
                                 MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.secondaryContainer.copy(
-                                    alpha = 0.5f,
-                                ),
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.78f),
                             ),
                     ),
                 ),
         contentAlignment = Alignment.Center,
     ) {
+        Surface(
+            modifier = Modifier.size(140.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = word.firstOrNull()?.toString() ?: "?",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 72.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WordLearningSparkles() {
+    Box(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = word.firstOrNull()?.toString() ?: "",
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            text = "✦",
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 150.dp, end = 42.dp),
+            color = Color.White.copy(alpha = 0.9f),
+            fontSize = 32.sp,
             fontWeight = FontWeight.Black,
-            fontSize = 120.sp,
+        )
+        Text(
+            text = "✦",
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 44.dp, bottom = 148.dp),
+            color = Color.White.copy(alpha = 0.82f),
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Black,
+        )
+    }
+}
+
+@Composable
+private fun WordListMessageState(
+    mascot: SudaMascot,
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        SudaMascotImage(
+            mascot = mascot,
+            contentDescription = null,
+            modifier = Modifier.size(160.dp),
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun WordListErrorState(
+    message: String,
+    onRetryClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        SudaMascotImage(
+            mascot = SudaMascot.ErrorNetwork,
+            contentDescription = null,
+            modifier = Modifier.size(150.dp),
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+        AppInlineErrorText(text = message)
+        Spacer(modifier = Modifier.height(24.dp))
+        ChunkyButton(
+            text = "다시 시도",
+            onClick = onRetryClick,
+            tone = ChunkyButtonTone.Primary,
         )
     }
 }

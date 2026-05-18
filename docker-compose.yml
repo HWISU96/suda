@@ -60,7 +60,7 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()\""]
+      test: ["CMD-SHELL", "python -c \"import json, sys, urllib.request; data=json.load(urllib.request.urlopen('http://localhost:8000/health', timeout=2)); sys.exit(0 if data.get('modelLoaded') is True else 1)\""]
       interval: 5s
       timeout: 3s
       retries: 10

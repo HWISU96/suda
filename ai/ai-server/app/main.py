@@ -1,5 +1,6 @@
-from contextlib import asynccontextmanager
 import logging
+import sys
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -12,6 +13,22 @@ from app.schemas import (
 
 logger = logging.getLogger("sign_ai")
 sign_model_service = SignModelService()
+
+
+def configure_sign_ai_logger() -> None:
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if logger.handlers:
+        return
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    )
+    logger.addHandler(handler)
+
+
+configure_sign_ai_logger()
 
 
 @asynccontextmanager

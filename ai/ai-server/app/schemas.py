@@ -17,10 +17,24 @@ class CamelModel(BaseModel):
 
 class SignInferenceRequest(CamelModel):
     model_version: str | None = None
-    sequence_length: int = Field(default=DEFAULT_SEQUENCE_LENGTH, ge=1)
-    feature_dimension: int = Field(default=DEFAULT_FEATURE_DIMENSION, ge=1)
-    features: list[float]
-    timestamps_ms: list[int] | None = None
+    sequence_length: int = Field(
+        default=DEFAULT_SEQUENCE_LENGTH,
+        ge=1,
+        le=DEFAULT_SEQUENCE_LENGTH,
+    )
+    feature_dimension: int = Field(
+        default=DEFAULT_FEATURE_DIMENSION,
+        ge=1,
+        le=DEFAULT_FEATURE_DIMENSION,
+    )
+    features: list[float] = Field(
+        min_length=1,
+        max_length=DEFAULT_SEQUENCE_LENGTH * DEFAULT_FEATURE_DIMENSION,
+    )
+    timestamps_ms: list[int] | None = Field(
+        default=None,
+        max_length=DEFAULT_SEQUENCE_LENGTH,
+    )
     top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=MAX_TOP_K)
 
     @field_validator("features")
@@ -36,6 +50,11 @@ class SignInferenceRequest(CamelModel):
         data = info.data
         sequence_length = data.get("sequence_length", DEFAULT_SEQUENCE_LENGTH)
         feature_dimension = data.get("feature_dimension", DEFAULT_FEATURE_DIMENSION)
+        if (
+            sequence_length != DEFAULT_SEQUENCE_LENGTH
+            or feature_dimension != DEFAULT_FEATURE_DIMENSION
+        ):
+            raise ValueError("only sequenceLength=30 and featureDimension=332 are supported")
         expected_size = sequence_length * feature_dimension
         if len(value) != expected_size:
             raise ValueError("features length must equal sequenceLength * featureDimension")

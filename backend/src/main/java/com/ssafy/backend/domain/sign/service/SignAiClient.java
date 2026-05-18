@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class SignAiClient {
@@ -29,7 +30,7 @@ public class SignAiClient {
   }
 
   public SignInferenceResponseDto predict(SignInferenceRequestDto requestDto) {
-    URI uri = properties.baseUrl().resolve(PREDICT_PATH);
+    URI uri = UriComponentsBuilder.fromUri(properties.baseUrl()).path(PREDICT_PATH).build().toUri();
 
     try {
       SignInferenceResponseDto response =

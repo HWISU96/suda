@@ -45,7 +45,14 @@ public class SignInferenceService {
   }
 
   private void validateFeatureSequence(SignInferenceRequestDto requestDto) {
-    int expectedSize = requestDto.sequenceLength() * requestDto.featureDimension();
+    if (requestDto.sequenceLength() != DEFAULT_SEQUENCE_LENGTH
+        || requestDto.featureDimension() != DEFAULT_FEATURE_DIMENSION) {
+      throw new BusinessException(
+          SignInferenceErrorCode.INVALID_FEATURE_SEQUENCE,
+          "현재 서버 수어 인식 모델은 sequenceLength=30, featureDimension=332 규격만 지원합니다.");
+    }
+
+    long expectedSize = (long) requestDto.sequenceLength() * requestDto.featureDimension();
     if (requestDto.features().size() != expectedSize) {
       throw new BusinessException(
           SignInferenceErrorCode.INVALID_FEATURE_SEQUENCE,

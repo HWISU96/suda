@@ -70,7 +70,11 @@ class SignModelService:
             "error": self.load_error,
         }
 
-    def predict(self, request: SignInferenceRequest) -> SignInferenceResponse:
+    def predict(
+        self,
+        request: SignInferenceRequest,
+        trace_id: str | None = None,
+    ) -> SignInferenceResponse:
         if not self.is_loaded or self.torch is None or self.device is None:
             raise ModelNotLoadedError(self.load_error or "sign model is not loaded")
 
@@ -123,6 +127,7 @@ class SignModelService:
             top_candidates=top_candidates,
             model_version=self.model_version,
             inference_ms=inference_ms,
+            trace_id=trace_id,
         )
 
     def _load(self) -> None:

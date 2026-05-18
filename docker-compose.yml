@@ -43,6 +43,8 @@ services:
     restart: unless-stopped
 
   ai-server:
+    profiles:
+      - local-ai
     build:
       context: ./ai
       dockerfile: ai-server/Dockerfile
@@ -78,8 +80,6 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      ai-server:
         condition: service_healthy
     environment:
       TZ: Asia/Seoul

@@ -4,6 +4,8 @@
 .env
 *.pem
 *.key
+*.pt
+*.pth
 local.properties
 keystore.properties
 secrets.xml

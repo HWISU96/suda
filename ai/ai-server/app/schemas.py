@@ -89,3 +89,4 @@ class SignInferenceResponse(CamelModel):
     top_candidates: list[SignInferenceCandidate] = Field(default_factory=list)
     model_version: str | None = None
     inference_ms: int | None = None
+    trace_id: str | None = None

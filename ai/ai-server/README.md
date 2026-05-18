@@ -95,3 +95,7 @@ BACKEND_SIGN_AI_BASE_URL=http://<gpu-private-ip>:8000
 
 추론 endpoint는 flatten된 `30 * 332` feature sequence를 입력으로 받고, top candidates,
 confidence, margin, accepted/rejectionReason 정보를 반환합니다.
+
+Spring에서 전달한 `X-Trace-Id`는 FastAPI 로그와 추론 응답의 `traceId`에 함께 남깁니다.
+운영 로그에는 feature 원문을 남기지 않고 sequenceLength, featureDimension, topK,
+modelVersion, inferenceMs, accepted, gloss, confidence 같은 요약 정보만 기록합니다.

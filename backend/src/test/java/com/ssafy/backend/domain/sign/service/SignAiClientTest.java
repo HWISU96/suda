@@ -3,6 +3,7 @@ package com.ssafy.backend.domain.sign.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withNoContent;
@@ -15,6 +16,7 @@ import com.ssafy.backend.domain.sign.dto.SignInferenceRequestDto;
 import com.ssafy.backend.domain.sign.dto.SignInferenceResponseDto;
 import com.ssafy.backend.domain.sign.exception.SignInferenceErrorCode;
 import com.ssafy.backend.global.exception.BusinessException;
+import com.ssafy.backend.global.logging.TraceIdFilter;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.time.Duration;
@@ -22,6 +24,7 @@ import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -66,7 +69,8 @@ class SignAiClientTest {
                   "rejectionReason": null,
                   "topCandidates": [],
                   "modelVersion": "v6_24words_tcn",
-                  "inferenceMs": 18
+                  "inferenceMs": 18,
+                  "traceId": "trace-1"
                 }
                 """,
                 MediaType.APPLICATION_JSON));
@@ -76,7 +80,45 @@ class SignAiClientTest {
     assertThat(response.gloss()).isEqualTo("병원");
     assertThat(response.accepted()).isTrue();
     assertThat(response.modelVersion()).isEqualTo("v6_24words_tcn");
+    assertThat(response.traceId()).isEqualTo("trace-1");
     server.verify();
+  }
+
+  @Test
+  @DisplayName("traceId가 있으면 AI 서버 요청 헤더로 전달한다")
+  void predictForwardsTraceIdHeader() {
+    String traceId = "trace-123";
+    MDC.put(TraceIdFilter.TRACE_ID_KEY, traceId);
+    try {
+      server
+          .expect(once(), requestTo(PREDICT_URL))
+          .andExpect(header(TraceIdFilter.TRACE_ID_HEADER, traceId))
+          .andRespond(
+              withSuccess(
+                  """
+                  {
+                    "gloss": "병원",
+                    "confidence": 0.92,
+                    "margin": 0.2,
+                    "classIndex": 19,
+                    "rawGloss": "병원",
+                    "accepted": true,
+                    "rejectionReason": null,
+                    "topCandidates": [],
+                    "modelVersion": "v6_24words_tcn",
+                    "inferenceMs": 18,
+                    "traceId": "trace-123"
+                  }
+                  """,
+                  MediaType.APPLICATION_JSON));
+
+      SignInferenceResponseDto response = signAiClient.predict(request());
+
+      assertThat(response.traceId()).isEqualTo(traceId);
+      server.verify();
+    } finally {
+      MDC.remove(TraceIdFilter.TRACE_ID_KEY);
+    }
   }
 
   @Test

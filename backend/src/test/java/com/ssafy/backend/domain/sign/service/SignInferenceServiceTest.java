@@ -102,6 +102,6 @@ class SignInferenceServiceTest {
 
   private SignInferenceResponseDto response() {
     return new SignInferenceResponseDto(
-        "병원", 0.92f, 0.2f, 19, "병원", true, null, List.of(), "v6_24words_tcn", 18L);
+        "병원", 0.92f, 0.2f, 19, "병원", true, null, List.of(), "v6_24words_tcn", 18L, "trace-1");
   }
 }

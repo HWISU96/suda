@@ -1,43 +1,39 @@
-from time import perf_counter
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
 
+from app.model_service import ModelNotLoadedError, SignModelService
 from app.schemas import (
-    SignInferenceCandidate,
     SignInferenceRequest,
     SignInferenceResponse,
 )
 
-app = FastAPI(title="Sign AI Server", version="0.1.0")
+sign_model_service = SignModelService()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    sign_model_service.load()
+    yield
+
+
+app = FastAPI(title="Sign AI Server", version="0.2.0", lifespan=lifespan)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> JSONResponse:
+    health_status = sign_model_service.health()
+    http_status = status.HTTP_200_OK if sign_model_service.is_loaded else status.HTTP_503_SERVICE_UNAVAILABLE
+    return JSONResponse(status_code=http_status, content=health_status)
 
 
 @app.post("/internal/sign/predict", response_model=SignInferenceResponse)
 def predict(request: SignInferenceRequest) -> SignInferenceResponse:
-    started_at = perf_counter()
-    model_version = request.model_version or "stub-v6-tcn"
-    inference_ms = int((perf_counter() - started_at) * 1000)
-
-    return SignInferenceResponse(
-        gloss="unknown",
-        confidence=0.0,
-        margin=0.0,
-        class_index=None,
-        raw_gloss="unknown",
-        accepted=False,
-        rejection_reason="stub_response",
-        top_candidates=[
-            SignInferenceCandidate(
-                rank=1,
-                class_index=22,
-                gloss="none",
-                confidence=0.0,
-            )
-        ][: request.top_k],
-        model_version=model_version,
-        inference_ms=inference_ms,
-    )
+    try:
+        return sign_model_service.predict(request)
+    except ModelNotLoadedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc

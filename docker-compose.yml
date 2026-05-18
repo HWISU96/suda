@@ -110,7 +110,7 @@ services:
       CLOVA_TTS_FORMAT: ${CLOVA_TTS_FORMAT:-mp3}
       CLOVA_STT_URL: ${CLOVA_STT_URL:-https://naveropenapi.apigw.ntruss.com/recog/v1/stt}
       CLOVA_STT_LANGUAGE: ${CLOVA_STT_LANGUAGE:-Kor}
-      SIGN_AI_BASE_URL: http://ai-server:8000
+      SIGN_AI_BASE_URL: ${BACKEND_SIGN_AI_BASE_URL:-http://ai-server:8000}
       SIGN_AI_CONNECT_TIMEOUT: ${SIGN_AI_CONNECT_TIMEOUT:-1s}
       SIGN_AI_READ_TIMEOUT: ${SIGN_AI_READ_TIMEOUT:-1s}
     ports:

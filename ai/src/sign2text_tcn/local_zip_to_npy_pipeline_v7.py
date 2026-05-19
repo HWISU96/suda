@@ -1,3 +1,20 @@
+"""
+local_zip_to_npy_pipeline_v7.py
+────────────────────────────────────────────────────────────────────
+기존 local_zip_to_npy_pipeline.py 와 완전히 동일한 로직.
+변경점:
+  - DEFAULT_MAPPING  → "AI_Hub_Video_Mapping_v7.json"
+  - DEFAULT_OUTPUT_DIR → "processed_npy_v7"
+  - TARGET_WORDS     → target_words_v7.TARGET_WORDS (99단어 + none)
+
+사용법 (v100 서버):
+  python local_zip_to_npy_pipeline_v7.py \\
+      --zip-root /path/to/aihub_zips \\
+      --mapping  AI_Hub_Video_Mapping_v7.json \\
+      --output-dir processed_npy_v7
+────────────────────────────────────────────────────────────────────
+"""
+
 import argparse
 import json
 import os
@@ -10,16 +27,16 @@ from pathlib import Path
 from aihub_to_local_npy_pipeline import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_WORKERS,
-    DEFAULT_OUTPUT_DIR,
     DEFAULT_TASKS_PER_CHILD,
     get_int_env,
     process_jobs_in_batches,
 )
-from target_words_v6 import TARGET_WORDS
+from target_words_v7 import TARGET_WORDS
 
 
 DEFAULT_ZIP_PATTERN = "*real_word_video.zip"
-DEFAULT_MAPPING = "AI_Hub_Video_Mapping_v6.json"
+DEFAULT_MAPPING = "AI_Hub_Video_Mapping_v7.json"
+DEFAULT_OUTPUT_DIR = "processed_npy_v7"
 
 
 def load_filename_to_label(mapping_path):
@@ -29,6 +46,8 @@ def load_filename_to_label(mapping_path):
     filename_to_label = {}
     label_counts = {}
     for label in TARGET_WORDS:
+        if label == "none":
+            continue
         videos = mapping.get(label, [])
         label_counts[label] = len(videos)
         for video in videos:
@@ -102,7 +121,7 @@ def extract_members_to_temp(filename_to_label, filename_files, output_dir, temp_
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Create local npy files from pre-downloaded AIHub word ZIP files."
+        description="Create local npy files from pre-downloaded AIHub word ZIP files (v7: 100 classes)."
     )
     parser.add_argument(
         "--zip-root",
@@ -156,15 +175,18 @@ def main():
     print(f"ZIP files: {len(zip_files)}")
     print(f"Mapping: {mapping_path}")
     print(f"Output dir: {output_dir}")
+    print(f"Target words: {len([w for w in TARGET_WORDS if w != 'none'])} (+ none)")
 
     filename_to_label, label_counts = load_filename_to_label(mapping_path)
     filename_files, _ = scan_zip_members(zip_files)
 
     print("Mapping target counts:")
     for label in TARGET_WORDS:
+        if label == "none":
+            continue
         print(f"- {label}: {label_counts.get(label, 0)}")
 
-    with tempfile.TemporaryDirectory(prefix="local_zip_mp4_") as temp_root:
+    with tempfile.TemporaryDirectory(prefix="local_zip_mp4_v7_") as temp_root:
         jobs, counters = extract_members_to_temp(
             filename_to_label=filename_to_label,
             filename_files=filename_files,
@@ -186,7 +208,7 @@ def main():
                 tasks_per_child=max(args.tasks_per_child, 1),
             )
 
-    print("Local ZIP to npy generation complete.")
+    print("Local ZIP to npy generation complete (v7).")
 
 
 if __name__ == "__main__":

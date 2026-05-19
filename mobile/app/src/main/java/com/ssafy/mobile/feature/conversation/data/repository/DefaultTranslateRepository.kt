@@ -8,6 +8,7 @@ import com.ssafy.mobile.feature.conversation.data.remote.model.SignToSpeechReque
 import com.ssafy.mobile.feature.conversation.data.remote.model.SignToSpeechResponse
 import com.ssafy.mobile.feature.conversation.data.remote.model.SpeechToTextResponse
 import com.ssafy.mobile.feature.conversation.data.remote.model.TranslationFeedbackRequest
+import com.ssafy.mobile.feature.conversation.data.remote.model.TranslationSttModeDto
 import com.ssafy.mobile.feature.conversation.domain.model.ChatMessage
 import com.ssafy.mobile.feature.conversation.domain.model.TranslationFeedbackReason
 import com.ssafy.mobile.feature.conversation.domain.repository.TranslateRepository
@@ -28,6 +29,16 @@ class DefaultTranslateRepository
     constructor(
         private val apiService: TranslateApiService,
     ) : TranslateRepository {
+        override suspend fun getSttMode(): Result<TranslationSttModeDto> =
+            runCatching {
+                val response = apiService.getSttConfig()
+                if (response.isSuccessful) {
+                    response.body()?.mode ?: throw IllegalStateException(ERROR_EMPTY_BODY)
+                } else {
+                    throw response.toApiException()
+                }
+            }
+
         override suspend fun translateSignToSpeech(
             words: List<String>,
             sessionId: Long?,

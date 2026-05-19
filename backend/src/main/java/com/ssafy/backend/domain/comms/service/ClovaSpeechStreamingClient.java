@@ -137,6 +137,9 @@ public class ClovaSpeechStreamingClient {
     int pendingBytesRead = 0;
     while (true) {
       int bytesRead = audioStream.read(buffer);
+      if (bytesRead == -1) {
+        break;
+      }
       if (bytesRead == 0) {
         continue;
       }
@@ -144,10 +147,6 @@ public class ClovaSpeechStreamingClient {
       if (pendingChunk != null) {
         requestObserver.onNext(audioRequest(pendingChunk, pendingBytesRead, seqId++, false));
         Thread.sleep(CHUNK_INTERVAL_MILLIS);
-      }
-
-      if (bytesRead == -1) {
-        break;
       }
 
       pendingChunk = buffer.clone();

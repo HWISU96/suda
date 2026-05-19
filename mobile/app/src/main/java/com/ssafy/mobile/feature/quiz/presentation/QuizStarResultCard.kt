@@ -57,20 +57,25 @@ internal fun QuizStarResultCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         val eventKey = answer.feedbackEventKey()
+        val isFailure = answer.isCorrect == false
 
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            StarRewardBurst(
-                eventKey = eventKey,
-                isCorrect = answer.isCorrect == true,
-                star = answer.star,
-            )
+            if (isFailure) {
+                FailureRewardBurst()
+            } else {
+                StarRewardBurst(
+                    eventKey = eventKey,
+                    isCorrect = answer.isCorrect == true,
+                    star = answer.star,
+                )
+            }
             QuizFeedbackMascotMessage(
-                mascot = answer.toFeedbackMascot(remainingRetryCount),
-                title = answer.toRewardTitle(remainingRetryCount),
+                mascot = answer.toFeedbackMascot(),
+                title = answer.toRewardTitle(),
                 description = answer.toRewardDescription(remainingRetryCount),
             )
         }
@@ -91,11 +96,11 @@ private fun QuizFeedbackMascotMessage(
         SudaMascotImage(
             mascot = mascot,
             contentDescription = null,
-            modifier = Modifier.size(70.dp),
+            modifier = Modifier.size(58.dp),
         )
         Column(
             horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = title,
@@ -133,7 +138,7 @@ private fun StarScoreIndicator(
                 contentDescription = null,
                 modifier =
                     Modifier
-                        .size(28.dp)
+                        .size(24.dp)
                         .alpha(if (index < starCount) 1f else EMPTY_STAR_ALPHA),
             )
         }
@@ -141,6 +146,32 @@ private fun StarScoreIndicator(
             text = star.toStarBadgeText(),
             tone = star.toStarBadgeTone(),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
+        )
+    }
+}
+
+@Composable
+private fun FailureRewardBurst(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .size(REWARD_BURST_SIZE.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        SudaMascotImage(
+            mascot = SudaMascot.ErrorNetwork,
+            contentDescription = null,
+            modifier =
+                Modifier
+                    .size(FAILURE_MASCOT_SIZE.dp)
+                    .offset(y = (-8).dp),
+        )
+        AppBadge(
+            text = "실패",
+            tone = AppBadgeTone.Error,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp),
         )
     }
 }
@@ -234,15 +265,15 @@ private fun StarRewardBurstContent(
         modifier =
             modifier
                 .fillMaxWidth()
-                .size(184.dp),
+                .size(REWARD_BURST_SIZE.dp),
         contentAlignment = Alignment.Center,
     ) {
         RewardSparkle(
             modifier =
                 Modifier
                     .align(Alignment.TopStart)
-                    .offset(x = 30.dp, y = 12.dp),
-            size = 44,
+                    .offset(x = 26.dp, y = 10.dp),
+            size = 34,
             scale = sparkleScale,
             alpha = sparkleAlpha,
         )
@@ -250,8 +281,8 @@ private fun StarRewardBurstContent(
             modifier =
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = (-24).dp, y = (-8).dp),
-            size = 38,
+                    .offset(x = (-20).dp, y = (-6).dp),
+            size = 30,
             scale = sparkleScale * 0.92f,
             alpha = sparkleAlpha,
         )
@@ -267,7 +298,7 @@ private fun StarRewardBurstContent(
             contentDescription = null,
             modifier =
                 Modifier
-                    .size(164.dp)
+                    .size(STAR_REWARD_IMAGE_SIZE.dp)
                     .graphicsLayer {
                         scaleX = starScale
                         scaleY = starScale
@@ -279,7 +310,7 @@ private fun StarRewardBurstContent(
             modifier =
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .offset(y = (-4).dp),
+                    .offset(y = (-2).dp),
         )
     }
 }
@@ -302,28 +333,27 @@ private fun RewardSparkle(
     )
 }
 
-private fun QuizAnswer.toRewardTitle(remainingRetryCount: Int): String =
+private fun QuizAnswer.toRewardTitle(): String =
     when {
         star == null -> "확인하고 있어요"
         isCorrect == true -> "잘했어요!"
-        remainingRetryCount > 0 -> "한 번 더 해볼까요?"
-        else -> "괜찮아요!"
+        else -> "실패했어요"
     }
 
 private fun QuizAnswer.toRewardDescription(remainingRetryCount: Int): String =
     when {
         star == null -> "목소리를 듣고 별을 세고 있어요."
         isCorrect == true -> "별을 멋지게 모았어요."
-        remainingRetryCount > 0 -> "천천히 다시 말하면 돼요."
-        else -> "다음 문제에서 또 해봐요."
+        remainingRetryCount > 0 ->
+            "다시 말해보거나 다음 문제로 넘어갈 수 있어요."
+        else -> "다음 문제에서 다시 해봐요."
     }
 
-private fun QuizAnswer.toFeedbackMascot(remainingRetryCount: Int): SudaMascot =
+private fun QuizAnswer.toFeedbackMascot(): SudaMascot =
     when {
         star == null -> SudaMascot.Loading
         isCorrect == true -> SudaMascot.Success3Star
-        remainingRetryCount > 0 -> SudaMascot.Retry1Star
-        else -> SudaMascot.Good2Star
+        else -> SudaMascot.ErrorNetwork
     }
 
 private fun Int?.toStarBadgeText(): String =
@@ -353,4 +383,7 @@ private fun QuizAnswer.toFeedbackCue(): QuizFeedbackCue? =
 private const val MIN_STAR = 0
 private const val PASSING_STAR = 2
 private const val MAX_STAR = 3
+private const val REWARD_BURST_SIZE = 152
+private const val STAR_REWARD_IMAGE_SIZE = 132
+private const val FAILURE_MASCOT_SIZE = 112
 private const val EMPTY_STAR_ALPHA = 0.24f

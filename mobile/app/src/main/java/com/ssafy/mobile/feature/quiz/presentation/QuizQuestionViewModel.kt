@@ -209,11 +209,6 @@ class QuizQuestionViewModel
                     question = question,
                 )
             }
-            scheduleAutoAdvanceAfterIncorrectAnswer(
-                sessionId = sessionId,
-                questionId = question.id,
-                expectedSubmitState = QuizAnswerSubmitState.TimedOut::class.java,
-            )
         }
 
         fun moveToNextQuestion() {
@@ -670,7 +665,6 @@ class QuizQuestionViewModel
                 val submitResult =
                     result ?: run {
                         handleTimedOutSubmission(
-                            sessionId = sessionId,
                             question = question,
                             answer = answer,
                             audioFile = audioFile,
@@ -686,12 +680,6 @@ class QuizQuestionViewModel
                         audioFile?.delete()
                         applyAnswerResult(answerResult)
                         _answerSubmitState.value = QuizAnswerSubmitState.Success
-                        if (!answerResult.isCorrect) {
-                            scheduleAutoAdvanceAfterIncorrectAnswer(
-                                sessionId = sessionId,
-                                questionId = answerResult.questionId,
-                            )
-                        }
                     }.onFailure { throwable ->
                         transitionToFailedAnswer(
                             answer = answer,
@@ -701,11 +689,6 @@ class QuizQuestionViewModel
                         submitFallbackIncorrectAnswerToServer(
                             sessionId = sessionId,
                             question = question,
-                        )
-                        scheduleAutoAdvanceAfterIncorrectAnswer(
-                            sessionId = sessionId,
-                            questionId = question.id,
-                            expectedSubmitState = QuizAnswerSubmitState.TimedOut::class.java,
                         )
                     }
             }
@@ -727,15 +710,22 @@ class QuizQuestionViewModel
 
             fallbackResult.onSuccess { answerResult ->
                 applyAnswerResult(answerResult)
-                _answerSubmitState.value =
-                    QuizAnswerSubmitState.TimedOut(
-                        QUIZ_SUBMIT_FAILED_MESSAGE,
-                    )
+                val state = _quizState.value
+                val isStillShowingFailedQuestion =
+                    state.sessionId == sessionId &&
+                        state.currentQuestion?.id == question.id &&
+                        _answerSubmitState.value is QuizAnswerSubmitState.TimedOut
+
+                if (isStillShowingFailedQuestion) {
+                    _answerSubmitState.value =
+                        QuizAnswerSubmitState.TimedOut(
+                            QUIZ_SUBMIT_FAILED_MESSAGE,
+                        )
+                }
             }
         }
 
         private fun handleTimedOutSubmission(
-            sessionId: Long,
             question: QuizQuestion,
             answer: QuizAnswer,
             audioFile: File?,
@@ -750,7 +740,6 @@ class QuizQuestionViewModel
             )
 
             awaitLateSubmitResult(
-                sessionId = sessionId,
                 questionId = question.id,
                 attemptCount = answer.attemptCount,
                 audioFile = audioFile,
@@ -773,53 +762,7 @@ class QuizQuestionViewModel
             _answerSubmitState.value = QuizAnswerSubmitState.TimedOut(message)
         }
 
-        @Suppress("ComplexCondition")
-        private fun scheduleAutoAdvanceAfterIncorrectAnswer(
-            sessionId: Long,
-            questionId: Long,
-            expectedSubmitState:
-                Class<out QuizAnswerSubmitState> = QuizAnswerSubmitState.Success::class.java,
-        ) {
-            viewModelScope.launch {
-                delay(QUIZ_FAILED_ANSWER_DISPLAY_MS)
-
-                val state = _quizState.value
-                val currentAnswer =
-                    state.answers.firstOrNull { answer ->
-                        answer.questionId == questionId
-                    }
-
-                val canAutoAdvance =
-                    state.sessionId == sessionId &&
-                        !state.isLoading &&
-                        state.currentQuestion?.id == questionId &&
-                        currentAnswer?.isCorrect == false &&
-                        expectedSubmitState.isInstance(_answerSubmitState.value)
-                if (!canAutoAdvance) {
-                    return@launch
-                }
-
-                if (state.shouldCompleteAfter(currentAnswer)) {
-                    _answerSubmitState.value = QuizAnswerSubmitState.Submitting
-                    isCompletionPending = true
-                    completeSession(sessionId)
-                    return@launch
-                }
-
-                val nextQuestionNumber =
-                    currentAnswer.nextQuestionNumber
-                        ?: state.localNextQuestionNumber(questionId)
-                        ?: state.currentQuestionNumber + 1
-                advanceToNextQuestion(
-                    sessionId = sessionId,
-                    currentQuestionId = questionId,
-                    nextQuestionNumber = nextQuestionNumber,
-                )
-            }
-        }
-
         private fun awaitLateSubmitResult(
-            sessionId: Long,
             questionId: Long,
             attemptCount: Int,
             audioFile: File?,
@@ -845,23 +788,7 @@ class QuizQuestionViewModel
                     .onSuccess { answerResult ->
                         audioFile?.delete()
                         applyAnswerResult(answerResult)
-
-                        if (answerResult.hasNext) {
-                            val state = _quizState.value
-                            val nextQuestionNumber =
-                                answerResult.nextQuestionNumber
-                                    ?: state.localNextQuestionNumber(questionId)
-                                    ?: state.currentQuestionNumber + 1
-                            advanceToNextQuestion(
-                                sessionId = sessionId,
-                                currentQuestionId = questionId,
-                                nextQuestionNumber = nextQuestionNumber,
-                            )
-                        } else {
-                            _answerSubmitState.value = QuizAnswerSubmitState.Submitting
-                            isCompletionPending = true
-                            completeSession(sessionId)
-                        }
+                        _answerSubmitState.value = QuizAnswerSubmitState.Success
                     }.onFailure {
                         audioFile?.delete()
                         _answerSubmitState.value =
@@ -1066,7 +993,6 @@ private fun QuizSessionState.resolveNextQuestionIndex(
 private const val RESUME_SESSION_ID_NONE = -1L
 private const val UNKNOWN_QUIZ_WORD_ID = -1L
 private const val QUIZ_SUBMIT_TIMEOUT_MS = 5_000L
-private const val QUIZ_FAILED_ANSWER_DISPLAY_MS = 700L
 private const val QUIZ_NEXT_QUESTION_POLL_DELAY_MS = 350L
 private const val QUIZ_NEXT_QUESTION_POLL_ATTEMPTS = 18
 private const val QUIZ_NEXT_QUESTION_LOAD_FAILED_MESSAGE =

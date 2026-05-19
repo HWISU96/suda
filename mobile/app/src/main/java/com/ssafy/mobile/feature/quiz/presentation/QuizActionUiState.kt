@@ -106,7 +106,9 @@ internal fun quizActionUiState(
                 recognizedText = answer?.sttText,
             ),
         answerSubmitState = answerSubmitState,
-        isAwaitingNextQuestion = answerSubmitState is QuizAnswerSubmitState.TimedOut,
+        isAwaitingNextQuestion =
+            answerSubmitState is QuizAnswerSubmitState.TimedOut &&
+                !canMoveNext,
     )
 
 @Composable

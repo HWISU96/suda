@@ -727,7 +727,10 @@ class QuizQuestionViewModel
 
             fallbackResult.onSuccess { answerResult ->
                 applyAnswerResult(answerResult)
-                _answerSubmitState.value = QuizAnswerSubmitState.TimedOut(QUIZ_SUBMIT_FAILED_MESSAGE)
+                _answerSubmitState.value =
+                    QuizAnswerSubmitState.TimedOut(
+                        QUIZ_SUBMIT_FAILED_MESSAGE,
+                    )
             }
         }
 

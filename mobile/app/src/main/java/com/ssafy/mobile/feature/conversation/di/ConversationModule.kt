@@ -9,8 +9,12 @@ import com.ssafy.mobile.core.vision.wordspotting.NoOpWordSpottingScanner
 import com.ssafy.mobile.core.vision.wordspotting.WordSpottingScanner
 import com.ssafy.mobile.feature.conversation.data.remote.CommsSessionApiService
 import com.ssafy.mobile.feature.conversation.data.remote.TranslateApiService
+import com.ssafy.mobile.feature.conversation.data.repository.DataStoreTranslationModeRepository
 import com.ssafy.mobile.feature.conversation.data.repository.DefaultTranslateRepository
+import com.ssafy.mobile.feature.conversation.data.streaming.OkHttpTranslationStreamingSttClient
 import com.ssafy.mobile.feature.conversation.domain.repository.TranslateRepository
+import com.ssafy.mobile.feature.conversation.domain.repository.TranslationModeRepository
+import com.ssafy.mobile.feature.conversation.domain.streaming.TranslationStreamingSttClient
 import com.ssafy.mobile.translation.OnDeviceTranslationEngine
 import com.ssafy.mobile.translation.QwenLiteRtTranslationEngine
 import dagger.Binds
@@ -30,6 +34,18 @@ abstract class ConversationModule {
     abstract fun bindTranslateRepository(
         repository: DefaultTranslateRepository,
     ): TranslateRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTranslationModeRepository(
+        repository: DataStoreTranslationModeRepository,
+    ): TranslationModeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTranslationStreamingSttClient(
+        client: OkHttpTranslationStreamingSttClient,
+    ): TranslationStreamingSttClient
 
     @Binds
     @Singleton

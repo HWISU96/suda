@@ -207,13 +207,14 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
 
   private void handleClovaError(
       WebSocketSession session, StreamingSessionState state, Throwable throwable) {
-    log.warn("[Streaming STT] CLOVA Speech stream failed.", throwable);
     state.cancelEndTimeout();
 
     if (!removeStateIfSame(session, state)) {
       state.close();
       return;
     }
+
+    log.warn("[Streaming STT] CLOVA Speech stream failed.", throwable);
 
     try {
       sendError(session, "CLOVA Speech streaming failed.");

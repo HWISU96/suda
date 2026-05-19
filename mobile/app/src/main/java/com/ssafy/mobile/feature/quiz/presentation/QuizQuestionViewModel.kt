@@ -2,7 +2,6 @@
 
 package com.ssafy.mobile.feature.quiz.presentation
 
-import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,7 +19,6 @@ import com.ssafy.mobile.feature.quiz.domain.model.QuizAnswer
 import com.ssafy.mobile.feature.quiz.domain.model.QuizQuestion
 import com.ssafy.mobile.feature.quiz.domain.model.QuizSessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -40,7 +38,6 @@ class QuizQuestionViewModel
     @Inject
     constructor(
         savedStateHandle: SavedStateHandle,
-        @param:ApplicationContext private val appContext: Context,
         private val quizRepository: LearningQuizRepository,
         private val wordRepository: LearningWordRepository,
         private val activeChildStorage: ActiveChildStorage,
@@ -1078,5 +1075,3 @@ private const val QUIZ_SUBMIT_TIMEOUT_MESSAGE =
 private const val QUIZ_SUBMIT_TIMEOUT_FEEDBACK = "채점 시간이 길어 오답으로 처리했어요."
 private const val QUIZ_LATE_SUBMIT_TIMEOUT_MESSAGE =
     "다음 문제를 준비하는 데 시간이 걸리고 있어요. 잠시만 기다려 주세요."
-private const val QUIZ_NEXT_QUESTION_DELAY_MESSAGE =
-    "다음 문제를 아직 준비하지 못했어요. 잠시 후 자동으로 넘어가요."

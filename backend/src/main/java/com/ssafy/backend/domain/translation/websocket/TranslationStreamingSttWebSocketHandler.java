@@ -5,11 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ssafy.backend.domain.comms.service.ClovaSpeechStreamingClient;
 import com.ssafy.backend.domain.comms.service.ClovaSpeechStreamingClient.StreamingCall;
 import com.ssafy.backend.domain.comms.service.StreamingSttResultService;
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.Principal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +34,18 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
 
   private static final String SESSION_STATE_ATTRIBUTE = "translationStreamingSttState";
   private static final String DEFAULT_LOCALE = "ko-KR";
+  private static final long END_RESPONSE_TIMEOUT_SECONDS = 30;
 
   private final ObjectMapper objectMapper;
   private final ClovaSpeechStreamingClient clovaSpeechStreamingClient;
   private final StreamingSttResultService streamingSttResultService;
+  private final ScheduledExecutorService endTimeoutExecutor =
+      Executors.newSingleThreadScheduledExecutor(
+          runnable -> {
+            Thread thread = new Thread(runnable, "translation-stt-end-timeout");
+            thread.setDaemon(true);
+            return thread;
+          });
 
   public TranslationStreamingSttWebSocketHandler(
       ObjectMapper objectMapper,
@@ -74,8 +87,14 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
   public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
     StreamingSessionState state = removeState(session);
     if (state != null) {
+      state.cancelEndTimeout();
       state.close();
     }
+  }
+
+  @PreDestroy
+  void shutdownEndTimeoutExecutor() {
+    endTimeoutExecutor.shutdownNow();
   }
 
   private void startStreaming(WebSocketSession session, JsonNode payload) throws IOException {
@@ -136,6 +155,11 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
     }
 
     state.complete();
+    state.scheduleEndTimeout(
+        endTimeoutExecutor.schedule(
+            () -> handleEndTimeout(session, state),
+            END_RESPONSE_TIMEOUT_SECONDS,
+            TimeUnit.SECONDS));
   }
 
   private void handleClovaResponse(
@@ -190,12 +214,14 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
     } finally {
       StreamingSessionState state = removeState(session);
       if (state != null) {
+        state.cancelEndTimeout();
         state.close();
       }
     }
   }
 
   private void handleClovaCompleted(WebSocketSession session, StreamingSessionState state) {
+    state.cancelEndTimeout();
     if (state.markSaved()) {
       streamingSttResultService.saveFinalResult(
           state.userId(), state.sessionId(), state.recognizedText(), state.locale());
@@ -207,6 +233,20 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
       log.warn("[Streaming STT] Failed to send close message to websocket client.", e);
     } finally {
       removeState(session);
+    }
+  }
+
+  private void handleEndTimeout(WebSocketSession session, StreamingSessionState state) {
+    if (!removeStateIfSame(session, state)) {
+      return;
+    }
+
+    state.close();
+
+    try {
+      sendError(session, "CLOVA Speech streaming response timed out.");
+    } catch (IOException e) {
+      log.warn("[Streaming STT] Failed to send timeout message to websocket client.", e);
     }
   }
 
@@ -256,6 +296,16 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
     return value instanceof StreamingSessionState state ? state : null;
   }
 
+  private boolean removeStateIfSame(WebSocketSession session, StreamingSessionState expectedState) {
+    synchronized (session) {
+      if (getState(session) != expectedState) {
+        return false;
+      }
+      session.getAttributes().remove(SESSION_STATE_ATTRIBUTE);
+      return true;
+    }
+  }
+
   private void sendError(WebSocketSession session, String message) throws IOException {
     sendJson(session, Map.of("type", "error", "message", message));
   }
@@ -274,8 +324,10 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
     private final String locale;
     private final StringBuilder recognizedText = new StringBuilder();
     private final AtomicBoolean saved = new AtomicBoolean(false);
+    private final AtomicBoolean completed = new AtomicBoolean(false);
     private StreamingCall streamingCall;
     private byte[] pendingAudio;
+    private ScheduledFuture<?> endTimeout;
 
     private StreamingSessionState(Long userId, Long sessionId, String locale) {
       this.userId = userId;
@@ -337,12 +389,22 @@ public class TranslationStreamingSttWebSocketHandler extends AbstractWebSocketHa
     }
 
     private void complete() {
-      if (streamingCall != null) {
+      if (streamingCall != null && completed.compareAndSet(false, true)) {
         if (pendingAudio != null) {
           streamingCall.sendAudio(pendingAudio, true);
           pendingAudio = null;
         }
         streamingCall.complete();
+      }
+    }
+
+    private void scheduleEndTimeout(ScheduledFuture<?> endTimeout) {
+      this.endTimeout = endTimeout;
+    }
+
+    private void cancelEndTimeout() {
+      if (endTimeout != null) {
+        endTimeout.cancel(false);
       }
     }
 

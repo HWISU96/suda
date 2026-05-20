@@ -17,6 +17,7 @@ import android.view.WindowManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -55,8 +57,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -400,15 +406,16 @@ private fun SignRecognitionArea(
             modifier = Modifier.fillMaxSize(),
         )
 
+        UpperBodyGuideOverlay(
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth(0.84f)
+                    .fillMaxHeight(0.74f)
+                    .offset(y = 64.dp),
+        )
+
         if (showSubtitles) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(SUBTITLE_HEIGHT_FRACTION)
-                        .align(Alignment.BottomCenter)
-                        .background(Color.Black.copy(alpha = CAMERA_SCRIM_ALPHA)),
-            )
             Box(
                 modifier =
                     Modifier
@@ -458,6 +465,62 @@ private fun SignRecognitionArea(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun UpperBodyGuideOverlay(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * 0.014f
+        val dashEffect =
+            PathEffect.dashPathEffect(
+                intervals =
+                    floatArrayOf(
+                        strokeWidth * 1.8f,
+                        strokeWidth * 1.2f,
+                    ),
+            )
+        val guideColor = Color.White.copy(alpha = 0.34f)
+        val accentColor = Color(0xFF9EE7D8).copy(alpha = 0.28f)
+        val centerX = size.width / 2f
+        val headRadius = size.minDimension * 0.132f
+        val headCenter = Offset(centerX, size.height * 0.23f)
+        val shoulderWidth = size.width * 0.54f
+        val shoulderTop = headCenter.y + (headRadius * 1.9f)
+        val torsoBottom = size.height * 0.88f
+
+        drawCircle(
+            color = guideColor,
+            center = headCenter,
+            radius = headRadius,
+            style = Stroke(width = strokeWidth, pathEffect = dashEffect),
+        )
+
+        drawArc(
+            color = guideColor,
+            startAngle = 198f,
+            sweepAngle = 144f,
+            useCenter = false,
+            topLeft = Offset(centerX - (shoulderWidth / 2f), shoulderTop - (headRadius * 0.1f)),
+            size = Size(width = shoulderWidth, height = size.height * 0.42f),
+            style = Stroke(width = strokeWidth, pathEffect = dashEffect),
+        )
+
+        drawLine(
+            color = guideColor,
+            start = Offset(centerX, shoulderTop + (size.height * 0.08f)),
+            end = Offset(centerX, torsoBottom),
+            strokeWidth = strokeWidth,
+            pathEffect = dashEffect,
+        )
+
+        drawLine(
+            color = accentColor,
+            start = Offset(size.width * 0.2f, size.height * 0.7f),
+            end = Offset(size.width * 0.8f, size.height * 0.7f),
+            strokeWidth = strokeWidth * 0.75f,
+            pathEffect = dashEffect,
+        )
     }
 }
 

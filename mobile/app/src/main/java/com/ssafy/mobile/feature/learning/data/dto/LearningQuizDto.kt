@@ -136,19 +136,27 @@ data class LearningQuizAnswerResponseDto(
     fun toDomain(
         fallbackSessionId: Long,
         fallbackQuestionId: Long,
-    ): LearningQuizAnswerResult =
-        LearningQuizAnswerResult(
+    ): LearningQuizAnswerResult {
+        val normalizedScore =
+            normalizeQuizAnswerScore(
+                recognizedText = recognizedText,
+                isCorrect = isCorrect,
+                star = star,
+            )
+
+        return LearningQuizAnswerResult(
             sessionId = sessionId ?: fallbackSessionId,
             questionId = questionId ?: fallbackQuestionId,
             wordId = wordId ?: UNKNOWN_WORD_ID,
             targetText = targetText.orEmpty(),
-            recognizedText = recognizedText.orEmpty(),
-            isCorrect = isCorrect ?: false,
-            star = star ?: MIN_QUIZ_STAR,
+            recognizedText = normalizedScore.recognizedText,
+            isCorrect = normalizedScore.isCorrect,
+            star = normalizedScore.star,
             feedback = feedback,
             hasNext = hasNext ?: false,
             nextQuestionNumber = nextQuestionNumber,
         )
+    }
 }
 
 data class LearningQuizSessionStatusRequestDto(
@@ -184,14 +192,17 @@ data class LearningQuizResultResponseDto(
     @SerializedName("answers")
     val answers: List<LearningQuizResultAnswerDto>,
 ) {
-    fun toDomain(): LearningQuizResult =
-        LearningQuizResult(
+    fun toDomain(): LearningQuizResult {
+        val normalizedAnswers = answers.map { it.toDomain() }
+
+        return LearningQuizResult(
             sessionId = sessionId,
             totalQuestionCount = totalQuestionCount,
-            correctCount = correctCount,
-            totalStar = totalStar,
-            answers = answers.map { it.toDomain() },
+            correctCount = normalizedAnswers.count { it.isCorrect },
+            totalStar = normalizedAnswers.sumOf { it.star },
+            answers = normalizedAnswers,
         )
+    }
 }
 
 data class LearningQuizResultAnswerDto(
@@ -210,18 +221,54 @@ data class LearningQuizResultAnswerDto(
     @SerializedName("feedback")
     val feedback: String? = null,
 ) {
-    fun toDomain(): LearningQuizResultAnswer =
-        LearningQuizResultAnswer(
+    fun toDomain(): LearningQuizResultAnswer {
+        val normalizedScore =
+            normalizeQuizAnswerScore(
+                recognizedText = recognizedText,
+                isCorrect = isCorrect,
+                star = star,
+            )
+
+        return LearningQuizResultAnswer(
             questionId = questionId,
             wordId = wordId,
             targetText = targetText,
-            recognizedText = recognizedText,
-            isCorrect = isCorrect,
-            star = star,
+            recognizedText = normalizedScore.recognizedText,
+            isCorrect = normalizedScore.isCorrect,
+            star = normalizedScore.star,
             feedback = feedback,
         )
+    }
 }
 
 private const val DEFAULT_QUESTION_NUMBER = 1
 private const val UNKNOWN_WORD_ID = -1L
-private const val MIN_QUIZ_STAR = 1
+private const val DEFAULT_QUIZ_STAR = 1
+private const val NO_SPEECH_QUIZ_STAR = 0
+
+private data class NormalizedQuizAnswerScore(
+    val recognizedText: String,
+    val isCorrect: Boolean,
+    val star: Int,
+)
+
+private fun normalizeQuizAnswerScore(
+    recognizedText: String?,
+    isCorrect: Boolean?,
+    star: Int?,
+): NormalizedQuizAnswerScore {
+    val normalizedRecognizedText = recognizedText.orEmpty().trim()
+    if (normalizedRecognizedText.isBlank()) {
+        return NormalizedQuizAnswerScore(
+            recognizedText = "",
+            isCorrect = false,
+            star = NO_SPEECH_QUIZ_STAR,
+        )
+    }
+
+    return NormalizedQuizAnswerScore(
+        recognizedText = normalizedRecognizedText,
+        isCorrect = isCorrect ?: false,
+        star = star ?: DEFAULT_QUIZ_STAR,
+    )
+}

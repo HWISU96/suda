@@ -4,11 +4,7 @@ package com.ssafy.mobile.feature.quiz.presentation
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -27,8 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -57,7 +51,8 @@ internal fun QuizStarResultCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         val eventKey = answer.feedbackEventKey()
-        val isFailure = answer.isCorrect == false
+        val earnedStarCount = answer.normalizedStarCount()
+        val isFailure = answer.isFailureResult()
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -69,8 +64,7 @@ internal fun QuizStarResultCard(
             } else {
                 StarRewardBurst(
                     eventKey = eventKey,
-                    isCorrect = answer.isCorrect == true,
-                    star = answer.star,
+                    starCount = earnedStarCount,
                 )
             }
             QuizFeedbackMascotMessage(
@@ -121,37 +115,9 @@ private fun QuizFeedbackMascotMessage(
 }
 
 @Composable
-private fun StarScoreIndicator(
-    star: Int?,
+private fun FailureRewardBurst(
     modifier: Modifier = Modifier,
 ) {
-    val starCount = star?.coerceIn(MIN_STAR, MAX_STAR) ?: MIN_STAR
-
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        repeat(MAX_STAR) { index ->
-            Image(
-                painter = painterResource(R.drawable.star_reward_small),
-                contentDescription = null,
-                modifier =
-                    Modifier
-                        .size(24.dp)
-                        .alpha(if (index < starCount) 1f else EMPTY_STAR_ALPHA),
-            )
-        }
-        AppBadge(
-            text = star.toStarBadgeText(),
-            tone = star.toStarBadgeTone(),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
-        )
-    }
-}
-
-@Composable
-private fun FailureRewardBurst(modifier: Modifier = Modifier) {
     Box(
         modifier =
             modifier
@@ -168,7 +134,7 @@ private fun FailureRewardBurst(modifier: Modifier = Modifier) {
                     .offset(y = (-8).dp),
         )
         AppBadge(
-            text = "실패",
+            text = "\uC544\uC26C\uC6CC\uC694",
             tone = AppBadgeTone.Error,
             modifier = Modifier.align(Alignment.BottomCenter),
             contentPadding = PaddingValues(horizontal = 22.dp, vertical = 10.dp),
@@ -179,35 +145,11 @@ private fun FailureRewardBurst(modifier: Modifier = Modifier) {
 @Composable
 private fun StarRewardBurst(
     eventKey: String?,
-    isCorrect: Boolean,
-    star: Int?,
+    starCount: Int,
     modifier: Modifier = Modifier,
 ) {
     val scale = remember(eventKey) { Animatable(0.7f) }
     val rotation = remember(eventKey) { Animatable(-10f) }
-    val infiniteTransition = rememberInfiniteTransition(label = "starRewardTwinkle")
-    val sparkleScale =
-        infiniteTransition.animateFloat(
-            initialValue = 0.82f,
-            targetValue = 1.12f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 760, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "sparkleScale",
-        )
-    val sparkleAlpha =
-        infiniteTransition.animateFloat(
-            initialValue = 0.55f,
-            targetValue = 1f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 620, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "sparkleAlpha",
-        )
 
     LaunchedEffect(eventKey) {
         if (eventKey == null) return@LaunchedEffect
@@ -241,24 +183,18 @@ private fun StarRewardBurst(
     }
 
     StarRewardBurstContent(
-        isCorrect = isCorrect,
-        star = star,
+        starCount = starCount,
         starScale = scale.value,
         starRotation = rotation.value,
-        sparkleScale = sparkleScale.value,
-        sparkleAlpha = sparkleAlpha.value,
         modifier = modifier,
     )
 }
 
 @Composable
 private fun StarRewardBurstContent(
-    isCorrect: Boolean,
-    star: Int?,
+    starCount: Int,
     starScale: Float,
     starRotation: Float,
-    sparkleScale: Float,
-    sparkleAlpha: Float,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -268,106 +204,84 @@ private fun StarRewardBurstContent(
                 .size(REWARD_BURST_SIZE.dp),
         contentAlignment = Alignment.Center,
     ) {
-        RewardSparkle(
+        LargeStarRow(
+            starCount = starCount,
             modifier =
                 Modifier
-                    .align(Alignment.TopStart)
-                    .offset(x = 26.dp, y = 10.dp),
-            size = 34,
-            scale = sparkleScale,
-            alpha = sparkleAlpha,
-        )
-        RewardSparkle(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = (-20).dp, y = (-6).dp),
-            size = 30,
-            scale = sparkleScale * 0.92f,
-            alpha = sparkleAlpha,
-        )
-        Image(
-            painter =
-                painterResource(
-                    if (isCorrect) {
-                        R.drawable.star_reward_glow
-                    } else {
-                        R.drawable.star_reward_full
-                    },
-                ),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .size(STAR_REWARD_IMAGE_SIZE.dp)
                     .graphicsLayer {
                         scaleX = starScale
                         scaleY = starScale
                         rotationZ = starRotation
                     },
         )
-        StarScoreIndicator(
-            star = star,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(y = (-2).dp),
-        )
     }
 }
 
 @Composable
-private fun RewardSparkle(
-    size: Int,
-    scale: Float,
-    alpha: Float,
+private fun LargeStarRow(
+    starCount: Int,
     modifier: Modifier = Modifier,
 ) {
-    Image(
-        painter = painterResource(R.drawable.star_reward_small),
-        contentDescription = null,
-        modifier =
-            modifier
-                .size(size.dp)
-                .scale(scale)
-                .alpha(alpha),
-    )
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(BIG_STAR_SPACING.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(starCount.coerceIn(1, MAX_STAR)) {
+            Image(
+                painter = painterResource(R.drawable.star_reward_big),
+                contentDescription = null,
+                modifier = Modifier.size(BIG_STAR_SIZE.dp),
+            )
+        }
+    }
 }
+
+private fun QuizAnswer.normalizedStarCount(): Int = star?.coerceIn(MIN_STAR, MAX_STAR) ?: MIN_STAR
+
+private fun QuizAnswer.isFailureResult(): Boolean = star != null && normalizedStarCount() == MIN_STAR
+
+private fun QuizAnswer.hasEarnedStar(): Boolean = normalizedStarCount() > MIN_STAR
+
+private fun QuizAnswer.earnedStarText(): String =
+    when (normalizedStarCount()) {
+        1 -> "\uBCC4 1\uAC1C"
+        2 -> "\uBCC4 2\uAC1C"
+        3 -> "\uBCC4 3\uAC1C"
+        else -> "\uBCC4 0\uAC1C"
+    }
 
 private fun QuizAnswer.toRewardTitle(): String =
     when {
-        star == null -> "확인하고 있어요"
-        isCorrect == true -> "잘했어요!"
-        else -> "실패했어요"
+        star == null -> "\uD655\uC778\uD558\uACE0 \uC788\uC5B4\uC694"
+        normalizedStarCount() == 1 -> "\uC88B\uC544\uC694!"
+        normalizedStarCount() == 2 -> "\uCC38 \uC798\uD588\uC5B4\uC694!"
+        normalizedStarCount() == MAX_STAR -> "\uC644\uBCBD\uD574\uC694!"
+        else -> "\uC544\uC26C\uC6CC\uC694 \u3160\u3160"
     }
 
 private fun QuizAnswer.toRewardDescription(remainingRetryCount: Int): String =
     when {
-        star == null -> "목소리를 듣고 별을 세고 있어요."
-        isCorrect == true -> "별을 멋지게 모았어요."
+        star == null -> "\uBAA9\uC18C\uB9AC\uB97C \uB4E3\uACE0 \uBCC4\uC744 \uC138\uACE0 \uC788\uC5B4\uC694."
+        normalizedStarCount() == MAX_STAR -> "\uBCC4\uC744 \uBA4B\uC9C0\uAC8C \uBAA8\uC558\uC5B4\uC694."
+        normalizedStarCount() == 2 && remainingRetryCount > 0 ->
+            "\uBCC4 2\uAC1C\uC608\uC694. \uD55C \uBC88 \uB354 \uB9D0\uD574\uBCF4\uBA74 3\uAC1C\uAE4C\uC9C0 \uBC1B\uC744 \uC218 \uC788\uC5B4\uC694."
+        normalizedStarCount() == 1 && remainingRetryCount > 0 ->
+            "\uBCC4 1\uAC1C\uC608\uC694. \uD55C \uBC88 \uB354 \uB9D0\uD574\uBCF4\uBA74 \uB354 \uB9CE\uC740 \uBCC4\uC744 \uBC1B\uC744 \uC218 \uC788\uC5B4\uC694."
+        hasEarnedStar() -> "${earnedStarText()}\uB97C \uBC1B\uC558\uC5B4\uC694."
         remainingRetryCount > 0 ->
-            "다시 말해보거나 다음 문제로 넘어갈 수 있어요."
-        else -> "다음 문제에서 다시 해봐요."
+            "\uB2E4\uC2DC \uB9D0\uD574\uBCF4\uAC70\uB098 " +
+                "\uB2E4\uC74C \uBB38\uC81C\uB85C \uB118\uC5B4\uAC08 \uC218 \uC788\uC5B4\uC694."
+        else -> "\uB2E4\uC74C \uBB38\uC81C\uC5D0\uC11C \uB2E4\uC2DC \uD574\uBD10\uC694."
     }
 
 private fun QuizAnswer.toFeedbackMascot(): SudaMascot =
     when {
         star == null -> SudaMascot.Loading
-        isCorrect == true -> SudaMascot.Success3Star
+        normalizedStarCount() == MAX_STAR -> SudaMascot.Success3Star
+        normalizedStarCount() == 2 -> SudaMascot.Good2Star
+        normalizedStarCount() == 1 -> SudaMascot.Retry1Star
         else -> SudaMascot.ErrorNetwork
-    }
-
-private fun Int?.toStarBadgeText(): String =
-    this
-        ?.coerceIn(MIN_STAR, MAX_STAR)
-        ?.let { "별 $it / $MAX_STAR" }
-        ?: "채점 중"
-
-private fun Int?.toStarBadgeTone(): AppBadgeTone =
-    when (this?.coerceIn(MIN_STAR, MAX_STAR)) {
-        null -> AppBadgeTone.Neutral
-        MAX_STAR -> AppBadgeTone.Success
-        PASSING_STAR -> AppBadgeTone.Warning
-        else -> AppBadgeTone.Error
     }
 
 private fun QuizAnswer.feedbackEventKey(): String? =
@@ -376,14 +290,13 @@ private fun QuizAnswer.feedbackEventKey(): String? =
 private fun QuizAnswer.toFeedbackCue(): QuizFeedbackCue? =
     when {
         star == null -> null
-        isCorrect == true -> QuizFeedbackCue.Correct
+        hasEarnedStar() -> QuizFeedbackCue.Correct
         else -> QuizFeedbackCue.Retry
     }
 
 private const val MIN_STAR = 0
-private const val PASSING_STAR = 2
 private const val MAX_STAR = 3
 private const val REWARD_BURST_SIZE = 152
-private const val STAR_REWARD_IMAGE_SIZE = 132
+private const val BIG_STAR_SIZE = 46
+private const val BIG_STAR_SPACING = 6
 private const val FAILURE_MASCOT_SIZE = 112
-private const val EMPTY_STAR_ALPHA = 0.24f

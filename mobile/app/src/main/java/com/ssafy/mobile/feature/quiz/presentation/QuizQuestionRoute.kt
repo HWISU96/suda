@@ -31,9 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -376,7 +376,8 @@ private fun QuizQuestionCard(
                         .graphicsLayer {
                             rotationX = animatedFoldRotation
                             transformOrigin = TransformOrigin(0.5f, 0f)
-                        }.background(Color(0xFFF8FFFC)),
+                        }
+                        .background(Color(0xFFF8FFFC)),
                 contentAlignment = Alignment.Center,
             ) {
                 AppNetworkImage(

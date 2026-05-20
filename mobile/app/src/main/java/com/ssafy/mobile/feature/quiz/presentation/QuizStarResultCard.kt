@@ -115,9 +115,7 @@ private fun QuizFeedbackMascotMessage(
 }
 
 @Composable
-private fun FailureRewardBurst(
-    modifier: Modifier = Modifier,
-) {
+private fun FailureRewardBurst(modifier: Modifier = Modifier) {
     Box(
         modifier =
             modifier
@@ -239,7 +237,9 @@ private fun LargeStarRow(
 
 private fun QuizAnswer.normalizedStarCount(): Int = star?.coerceIn(MIN_STAR, MAX_STAR) ?: MIN_STAR
 
-private fun QuizAnswer.isFailureResult(): Boolean = star != null && normalizedStarCount() == MIN_STAR
+private fun QuizAnswer.isFailureResult(): Boolean =
+    star != null &&
+        normalizedStarCount() == MIN_STAR
 
 private fun QuizAnswer.hasEarnedStar(): Boolean = normalizedStarCount() > MIN_STAR
 
@@ -262,8 +262,12 @@ private fun QuizAnswer.toRewardTitle(): String =
 
 private fun QuizAnswer.toRewardDescription(remainingRetryCount: Int): String =
     when {
-        star == null -> "\uBAA9\uC18C\uB9AC\uB97C \uB4E3\uACE0 \uBCC4\uC744 \uC138\uACE0 \uC788\uC5B4\uC694."
-        normalizedStarCount() == MAX_STAR -> "\uBCC4\uC744 \uBA4B\uC9C0\uAC8C \uBAA8\uC558\uC5B4\uC694."
+        star == null ->
+            "\uBAA9\uC18C\uB9AC\uB97C \uB4E3\uACE0 \uBCC4\uC744 " +
+                "\uC138\uACE0 \uC788\uC5B4\uC694."
+        normalizedStarCount() == MAX_STAR ->
+            "\uBCC4\uC744 \uBA4B\uC9C0\uAC8C " +
+                "\uBAA8\uC558\uC5B4\uC694."
         normalizedStarCount() == 2 && remainingRetryCount > 0 ->
             "\uBCC4 2\uAC1C\uC608\uC694. " +
                 "\uD55C \uBC88 \uB354 \uB9D0\uD574\uBCF4\uBA74 " +

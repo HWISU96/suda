@@ -357,8 +357,8 @@ mobile/local-models/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm
 </td>
 
 <td align="center" width="160">
-<a href="https://github.com/piequal3141592">
-<img src="https://github.com/piequal3141592.png" width="100" style="border-radius:50%"/><br/>
+<a href="https://github.com/soontofu12">
+<img src="https://github.com/soontofu12.png" width="100" style="border-radius:50%"/><br/>
 <sub><b>김순우</b></sub>
 </a><br/>
 <sub>AI</sub>
